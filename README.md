@@ -1,35 +1,44 @@
-# Tradeapp — Simulador VWAP + Currículo de Day Trade
+# Pregão de Treino
 
-Repositório central do projeto de formação em day trade (currículo "Professor Trade") e das ferramentas desenvolvidas ao longo das fases.
+Site + simulador de pregão sintético para treinar leitura de fluxo, rejeições
+no VWAP e disciplina de risco antes de operar com capital real.
 
-## Ferramenta principal
+🔗 **No ar em:** https://josecprietsch.github.io/Tradeapp/
 
-**`simulador-vwap.html`** — simulador de pregão sintético, 100% offline (basta abrir no navegador). Recursos:
+## Comece por aqui
 
-- Gerador de pregão com regimes de *range* (rejeições no VWAP) e *tendência* (rompimentos)
-- **Gate de critérios**: checklist obrigatório dos 4 critérios do setup antes de liberar a boleta
-- **Sizing por risco**: capital total + % de risco por operação → quantidade sugerida automaticamente (Risco ÷ distância do stop)
-- **Catalisadores macro simulados**: eventos que injetam volatilidade no meio do pregão (disciplina da Fase 2)
-- Execução conservadora de stop/alvo (stop tem prioridade se o candle tocar ambos)
-- **Diário integrado** com estado emocional, "segui o processo?", taxa de acerto, expectância em R e payoff ratio
-- **Modo Exame**: 4 casos desenhados à mão com ponto de decisão, gabarito comentado e continuação do pregão ("ver o que aconteceu depois")
-- Importação de CSV do TradingView e exportação do diário
+| Se você quer... | Vá em... |
+|---|---|
+| Ver como o repositório inteiro se organiza | [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) |
+| Saber em que fase do curso o projeto está | [`docs/CURRICULO.md`](docs/CURRICULO.md) |
+| Configurar login/cadastro (Supabase) | [`docs/SUPABASE.md`](docs/SUPABASE.md) |
+| Mexer no visual do site (home/método/cenários) | [`assets/style.css`](assets/style.css) |
+| Mexer no simulador em si | [`simulador-vwap.html`](simulador-vwap.html) — mapa de seções no comentário do topo do arquivo |
 
-## Estado do currículo
+## O que tem aqui
 
-| Fase | Conteúdo | Status |
-|------|----------|--------|
-| 0 | Fundamento estatístico (EV, R/R, variância) | ✅ Concluída |
-| 1 | Estrutura de mercado (fluxo institucional, VWAP, sizing) | ✅ Concluída |
-| 2 | Macro e catalisadores (surpresa vs. consenso) | ✅ Concluída |
-| 3 | Um único setup + 100+ trades simulados com diário | 🔲 Em andamento |
-| 4 | Capital real mínimo (risco 0,25–0,5% por trade) | ⏳ Condicionada à Fase 3 |
-| 5 | Escala condicional (200+ trades reais com expectância positiva) | ⏳ Futura |
+- **Home, Método, Cenários** — páginas de apresentação do projeto
+- **Simulador** — o app: gerador de pregão sintético, checklist de critérios,
+  boleta com cálculo de posição por risco, catalisadores macro simulados,
+  diário de operações com métricas, e um Modo Exame com 4 casos comentados
+- **`supabase/schema.sql`** — script pronto pra criar as tabelas de usuário
+  (diário, progresso, configurações) com Row Level Security já configurado
 
-Progressão por **competência, nunca por tempo**.
+## Estado atual
 
-## Princípios inegociáveis
+| Peça | Status |
+|---|---|
+| Site (home, cenários, método) | ✅ |
+| Simulador — visual e responsividade mobile | ✅ |
+| Login por conta / dados na nuvem | 🔲 planejado, ver `docs/SUPABASE.md` |
+| Fase 3 do currículo (100+ trades simulados) | 🔲 em andamento |
 
-- Pensar em probabilidades e EV — nenhum resultado é garantido
-- R/R mínimo de 1:2 a 1:3; preservação de capital acima de tudo
-- Honestidade epistêmica: 74–89% dos day traders de varejo perdem dinheiro de forma persistente
+## Princípios do projeto
+
+- Progressão por **competência**, nunca por tempo
+- Pensar em **EV e probabilidade** — nenhuma ferramenta aqui promete resultado
+- **R/R mínimo 1:2 a 1:3**, preservação de capital antes de ganho
+- Honestidade sobre os números: 74–89% dos day traders de varejo perdem
+  dinheiro de forma persistente — isso orienta o desenho de tudo aqui
+
+Mais detalhes em [`docs/CURRICULO.md`](docs/CURRICULO.md).

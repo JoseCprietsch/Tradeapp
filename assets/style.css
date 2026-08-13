@@ -1,4 +1,19 @@
-/* ===== Pregão de Treino — sistema de design do site ===== */
+/* ===== Pregão de Treino — sistema de design do site =====
+   USADO POR: index.html, cenarios.html, metodo.html
+   NÃO usado por: simulador-vwap.html (esse tem seu próprio CSS inline,
+   com a paleta ajustada pra combinar com este arquivo — se mudar uma cor
+   aqui, considera atualizar as variáveis --alta/--baixa/--vwap lá também).
+
+   ÍNDICE (Ctrl+F pelo título da seção):
+     :root            → tokens de cor/tipografia
+     nav              → cabeçalho fixo do site
+     hero             → seção de abertura da home
+     stat-band        → faixa da estatística de honestidade
+     section          → título+texto genérico de seção
+     steps / cards     → grades dos "4 passos" e dos cenários
+     footer.site      → rodapé
+     @media           → breakpoints responsivos (860px e 640px)
+*/
 :root{
   --ink:#090B10;
   --panel:#10141C;

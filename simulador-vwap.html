@@ -1,4 +1,30 @@
 <!DOCTYPE html>
+<!--
+  PÁGINA: Simulador (/simulador-vwap.html)
+  O QUE É: o app em si — gerador de pregão sintético, gate de critérios,
+           boleta com sizing por risco, diário de operações, Modo Exame.
+  ARQUIVO ÚNICO: HTML + CSS + JS tudo aqui dentro (sem build, sem dependências
+  externas além das fontes do Google Fonts). Isso é proposital — abre em
+  qualquer navegador sem precisar de servidor.
+
+  MAPA RÁPIDO DO JAVASCRIPT (procure pelos comentários /* ==== nome ==== */):
+    util            → funções auxiliares ($ , formatação de número/moeda)
+    estado          → variáveis globais (candles, cursor, posição aberta...)
+    Modo Exame      → const CASOS (os 4 cenários) + lógica do modo exame
+    gerador de pregão sintético → cria os candles aleatórios (regime range/tendência)
+    import CSV      → leitura de candles reais exportados do TradingView
+    critérios (gate) → checklist que libera/bloqueia o envio de ordem
+    gráfico         → desenho no <canvas>, incluindo arraste pra ver o passado
+    ticker / relógio → cabeçalho com preço, VWAP, hora do pregão
+    replay          → play/pause/velocidade/avançar 1 candle
+    boleta          → envio de ordem, cálculo de sizing por risco, R/R
+    diário          → tabela de operações fechadas + métricas + export CSV
+    acordeão mobile → cards que recolhem/expandem em telas pequenas
+
+  PRÓXIMO PASSO PLANEJADO: ligar ao Supabase (ver /supabase/schema.sql e
+  docs/SUPABASE.md) pra diário/progresso passarem de localStorage pra nuvem,
+  com login por conta.
+-->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
