@@ -1207,7 +1207,10 @@ async function cloudSignUp(){
   const email=$('#authEmail').value.trim(), pass=$('#authPass').value;
   if(!email||pass.length<6) return setAuthMsg('Preencha email e uma senha com 6+ caracteres.',true);
   setAuthMsg('Criando conta…');
-  const {error}=await sb.auth.signUp({email,password:pass});
+  const {error}=await sb.auth.signUp({
+    email, password:pass,
+    options:{ emailRedirectTo: window.location.href.split('#')[0].split('?')[0] }
+  });
   if(error) return setAuthMsg(error.message,true);
   setAuthMsg('Conta criada! Se pedir confirmação por email, confira sua caixa de entrada — senão, já pode entrar.');
 }
