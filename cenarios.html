@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cenários — Pregão de Treino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;1,500&family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .scenario{
+    display:grid; grid-template-columns:120px 1fr auto; gap:24px; align-items:center;
+    padding:26px 0; border-bottom:1px solid var(--line-soft);
+  }
+  .scenario .id{font-family:var(--font-mono); font-size:13px; color:var(--faint)}
+  .scenario h3{font-size:17px; font-weight:600; margin-bottom:6px}
+  .scenario p{color:var(--muted); font-size:14px; max-width:56ch; line-height:1.5}
+  @media (max-width:700px){ .scenario{grid-template-columns:1fr; gap:8px} }
+</style>
+</head>
+<body>
+<nav class="site">
+  <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;width:100%">
+    <a href="index.html" class="logo" style="text-decoration:none;color:inherit"><span class="dot"></span>Pregão de Treino</a>
+    <div class="links">
+      <a href="index.html">Início</a>
+      <a href="cenarios.html" class="active">Cenários</a>
+      <a href="metodo.html">Método</a>
+    </div>
+    <a href="simulador-vwap.html" class="cta">Abrir simulador</a>
+  </div>
+</nav>
+
+<section class="section" style="padding-top:64px">
+  <div class="wrap">
+    <div class="eyebrow" style="font-family:var(--font-mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:14px">modo exame</div>
+    <h1 style="font-family:var(--font-display);font-size:clamp(30px,4.5vw,44px);font-weight:600;max-width:18ch;margin-bottom:16px">Quatro leituras do mesmo padrão</h1>
+    <p style="color:var(--muted);font-size:15.5px;max-width:56ch;margin-bottom:24px">Cada cenário abaixo é desenhado à mão — mesmo início parecido, decisões diferentes exigidas. Todos rodam dentro do simulador, com gabarito comentado ao final.</p>
+
+    <div>
+      <div class="scenario">
+        <div class="id">CASO 01</div>
+        <div>
+          <h3>Rompimento recente</h3>
+          <p>O ativo passou a manhã abaixo do VWAP com rejeições. Acabou de romper — mas o rompimento tem menos de 5 minutos. Dá pra confiar já?</p>
+        </div>
+        <a href="simulador-vwap.html" class="btn ghost">Abrir caso →</a>
+      </div>
+      <div class="scenario">
+        <div class="id">CASO 02</div>
+        <div>
+          <h3>Rompimento com sustentação</h3>
+          <p>Mesmo início do Caso 1 — só que agora o preço sustenta acima do VWAP há vários candles seguidos, sem retestar embaixo.</p>
+        </div>
+        <a href="simulador-vwap.html" class="btn ghost">Abrir caso →</a>
+      </div>
+      <div class="scenario">
+        <div class="id">CASO 03</div>
+        <div>
+          <h3>Setup válido, catalisador chegando</h3>
+          <p>Os critérios técnicos estão presentes — mas o calendário mostra uma decisão de juros saindo em instantes. O setup importa menos que o timing aqui.</p>
+        </div>
+        <a href="simulador-vwap.html" class="btn ghost">Abrir caso →</a>
+      </div>
+      <div class="scenario">
+        <div class="id">CASO 04</div>
+        <div>
+          <h3>Controle vendedor ainda ativo</h3>
+          <p>Volume acima da média, preço sempre rejeitado perto do VWAP. Nenhuma confirmação real — clássico padrão de distribuição institucional.</p>
+        </div>
+        <a href="simulador-vwap.html" class="btn ghost">Abrir caso →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap grid">
+    <div>
+      <div class="brand">Pregão de Treino</div>
+      <p>Ferramenta educacional. Não é recomendação de investimento e não garante resultado.</p>
+    </div>
+    <div class="cols">
+      <div class="col">
+        <b>Navegar</b>
+        <a href="index.html">Início</a>
+        <a href="metodo.html">Método</a>
+        <a href="simulador-vwap.html">Simulador</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
