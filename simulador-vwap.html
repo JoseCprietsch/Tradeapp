@@ -70,12 +70,29 @@
   @media(max-width:640px){
     main{padding:12px 12px 24px;gap:12px}
     .side{gap:10px}
-    .replay{width:100%}
+    .replay{width:100%; margin-left:0}
     .speed{flex:1; min-width:0}
     .speed button{flex:1; padding:8px 6px; font-size:12px}
     progress{flex:1; width:auto; min-width:40px}
     #ohlc{white-space:normal; max-width:calc(100% - 40px); font-size:11px; left:10px; top:10px}
     #evBanner{max-width:calc(100% - 40px); right:10px; left:10px; font-size:11px}
+    #btnLive{font-size:11px; padding:6px 12px; bottom:8px}
+
+    /* tabela do diário vira lista de cartões — evita scroll horizontal gigante */
+    #tblWrap{overflow-x:visible}
+    table.trades thead{display:none}
+    table.trades, table.trades tbody{display:block; width:100%}
+    table.trades tr{
+      display:block; border:1px solid var(--border); border-radius:10px;
+      padding:10px 12px; margin-bottom:10px; background:var(--panel2);
+    }
+    table.trades td{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      padding:5px 0; border:0; font-size:12.5px; white-space:normal;
+    }
+    table.trades td::before{content:attr(data-label); color:var(--faint); font-size:11px; flex:none}
+    table.trades td:empty::before, table.trades td[data-label=""]::before{content:''}
+    table.trades td .nota{width:auto; flex:1; max-width:60%}
   }
 
   .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;backdrop-filter:blur(4px)}
@@ -97,6 +114,12 @@
     padding:6px 12px;border-radius:8px;font-family:var(--font-mono);font-size:12px;display:none;max-width:280px;
   }
   #evBanner.close{background:#F04E5E22;border-color:var(--baixa);color:var(--baixa)}
+  #btnLive{
+    position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:6px; background:var(--vwap); color:#1A1405;
+    border:0; border-radius:20px; padding:7px 16px; font-size:12px; font-weight:700;
+    font-family:var(--font-ui); box-shadow:0 4px 14px #00000066; z-index:5;
+  }
 
   .side{display:flex;flex-direction:column;gap:16px}
 
@@ -227,8 +250,9 @@
       <div id="ohlc"></div>
       <div id="evBanner"></div>
       <canvas id="chart" height="520"></canvas>
+      <button id="btnLive" style="display:none" title="Voltar para o candle mais recente">⟳ Ao vivo</button>
     </div>
-    <div class="hint">Passe o mouse para inspecionar candles · <kbd>Espaço</kbd> avança 1 candle · <kbd>P</kbd> reproduz/pausa · linha âmbar = VWAP · linha roxa tracejada = catalisador macro</div>
+    <div class="hint">Arraste o gráfico pra ver candles passados · <kbd>Espaço</kbd> avança 1 candle · <kbd>P</kbd> reproduz/pausa · linha âmbar = VWAP · linha roxa tracejada = catalisador macro</div>
   </section>
 
   <aside class="side">
@@ -366,6 +390,7 @@ function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a
 let candles=[];       // {t:Date, o,h,l,c,v, vwap, evento?}
 let eventos=[];        // [{idx,label}] catalisadores macro do pregão atual
 let cursor=0;          // quantos candles já revelados
+let viewOffset=0;      // quantos candles "pra trás" do cursor a janela visível está (arraste no gráfico)
 let playing=false, speed=1, timer=null;
 let lado='buy';
 let pos=null;          // {lado, qtd, entrada, stop, alvo, tIn, idxIn, emocional, criterios[]}
@@ -649,14 +674,14 @@ $('#btnEditCrit').addEventListener('click',()=>{
 const cv=$('#chart'), ctx=cv.getContext('2d');
 let hoverIdx=-1;
 function resize(){
-  const w=cv.clientWidth, dpr=window.devicePixelRatio||1;
-  cv.width=w*dpr; cv.height=520*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  const w=cv.clientWidth, h=cv.clientHeight||520, dpr=window.devicePixelRatio||1;
+  cv.width=w*dpr; cv.height=h*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
   draw();
 }
 window.addEventListener('resize',resize);
 
 function draw(){
-  const W=cv.clientWidth,H=520;
+  const W=cv.clientWidth,H=cv.clientHeight||520;
   ctx.clearRect(0,0,W,H);
   if(cursor===0){ctx.fillStyle='#5A6378';ctx.font='13px Sora';ctx.textAlign='center';
     ctx.fillText('Gere um novo pregão, importe um CSV ou entre no Modo Exame',W/2,H/2);return;}
@@ -664,8 +689,11 @@ function draw(){
   const chH=H-padB-volH-8, chW=W-padR;
   const bw=6, gap=2, per=bw+gap;
   const visN=Math.floor(chW/per);
-  const start=Math.max(0,cursor-visN);
-  const view=candles.slice(start,cursor);
+  const maxOffset=Math.max(0,cursor-visN);
+  viewOffset=Math.min(Math.max(0,viewOffset),maxOffset);
+  const end=cursor-viewOffset;
+  const start=Math.max(0,end-visN);
+  const view=candles.slice(start,end);
   let lo=Infinity,hi=-Infinity,vMax=0;
   view.forEach(k=>{lo=Math.min(lo,k.l,k.vwap);hi=Math.max(hi,k.h,k.vwap);vMax=Math.max(vMax,k.v)});
   if(pos){lo=Math.min(lo,pos.stop,pos.alvo);hi=Math.max(hi,pos.stop,pos.alvo);}
@@ -746,13 +774,38 @@ function draw(){
     const d=(k.c-k.vwap)/k.vwap*100;
     $('#ohlc').innerHTML=`${k.t.toTimeString().slice(0,5)} · A <b>${fmt(k.o)}</b> M <b>${fmt(k.h)}</b> m <b>${fmt(k.l)}</b> F <b>${fmt(k.c)}</b> · Vol <b>${k.v.toLocaleString('pt-BR')}</b> · <span style="color:#F5B841">Δ VWAP ${d>=0?'+':''}${d.toFixed(2)}%</span>`;
   } else $('#ohlc').innerHTML='';
+  updLiveBtn();
 }
-cv.addEventListener('mousemove',e=>{
-  const r=cv.getBoundingClientRect(),per=8;
-  const chW=cv.clientWidth-62,visN=Math.floor(chW/per),start=Math.max(0,cursor-visN);
+let dragging=false, dragStartX=0, dragStartOffset=0, dragMoved=false;
+cv.style.touchAction='none';
+cv.addEventListener('pointerdown', e=>{
+  dragging=true; dragMoved=false; dragStartX=e.clientX; dragStartOffset=viewOffset;
+  if(playing) pause();
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', e=>{
+  const per=8;
+  if(dragging){
+    const dx=e.clientX-dragStartX;
+    if(Math.abs(dx)>3) dragMoved=true;
+    viewOffset = dragStartOffset + Math.round(dx/per);
+    draw(); updLiveBtn();
+    return;
+  }
+  const r=cv.getBoundingClientRect();
+  const chW=cv.clientWidth-62,visN=Math.floor(chW/per);
+  const end=cursor-viewOffset, start=Math.max(0,end-visN);
   hoverIdx=start+Math.floor((e.clientX-r.left-2)/per);draw();
 });
-cv.addEventListener('mouseleave',()=>{hoverIdx=-1;draw()});
+cv.addEventListener('pointerup', ()=>{dragging=false});
+cv.addEventListener('pointercancel', ()=>{dragging=false});
+cv.addEventListener('mouseleave',()=>{if(!dragging){hoverIdx=-1;draw()}});
+function updLiveBtn(){
+  const btn=$('#btnLive');
+  if(!btn) return;
+  btn.style.display = viewOffset>0 ? 'flex' : 'none';
+}
+$('#btnLive') && $('#btnLive').addEventListener('click',()=>{viewOffset=0;draw();updLiveBtn()});
 
 /* ============ banner de catalisador ============ */
 function updEventBanner(){
@@ -794,13 +847,14 @@ function step(){
 function play(){
   if(modoExame && !decidido) return;
   if(!candles.length||cursor>=candles.length)return;
+  viewOffset=0;
   playing=true;$('#btnPlay').textContent='⏸ Pausar';
   clearInterval(timer);
   timer=setInterval(step,Math.max(45,700/speed));
 }
 function pause(){playing=false;$('#btnPlay').textContent='▶ Reproduzir';clearInterval(timer)}
 $('#btnPlay').addEventListener('click',()=>playing?pause():play());
-$('#btnStep').addEventListener('click',step);
+$('#btnStep').addEventListener('click',()=>{viewOffset=0;step()});
 $('#speedBox').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   speed=+b.dataset.s;
@@ -934,18 +988,18 @@ function renderTrades(){
     const proc = t.seguiuProcesso===undefined ? '—' : (t.seguiuProcesso?'<span class="up">Sim</span>':'<span class="down">Não</span>');
     const cat = t.pertoEvento ? '<span class="warn">⚠ sim</span>' : 'não';
     tr.innerHTML=`
-      <td>${t.data}</td><td>${t.hora}</td><td>${t.ativo}</td>
-      <td class="${t.lado==='buy'?'up':'down'}">${t.lado==='buy'?'C':'V'}</td>
-      <td>${t.qtd.toLocaleString('pt-BR')}</td>
-      <td>${fmt(t.entrada)}</td><td>${fmt(t.saida)}</td>
-      <td>${t.motivo}</td>
-      <td class="res ${t.res>=0?'up':'down'}">${fmtBRL(t.res)}</td>
-      <td class="${t.r>=0?'up':'down'}">${t.r>=0?'+':''}${t.r.toFixed(2)}R</td>
-      <td>${emo}</td>
-      <td>${proc}</td>
-      <td>${cat}</td>
-      <td><input class="nota" value="${(t.nota||'').replace(/"/g,'&quot;')}" placeholder="anotação…" data-i="${i}"></td>
-      <td><button class="btn ghost" data-del="${i}" title="Excluir" style="padding:2px 8px">×</button></td>`;
+      <td data-label="Data">${t.data}</td><td data-label="Hora">${t.hora}</td><td data-label="Ativo">${t.ativo}</td>
+      <td data-label="Lado" class="${t.lado==='buy'?'up':'down'}">${t.lado==='buy'?'C':'V'}</td>
+      <td data-label="Qtd">${t.qtd.toLocaleString('pt-BR')}</td>
+      <td data-label="Entrada">${fmt(t.entrada)}</td><td data-label="Saída">${fmt(t.saida)}</td>
+      <td data-label="Motivo">${t.motivo}</td>
+      <td data-label="Resultado" class="res ${t.res>=0?'up':'down'}">${fmtBRL(t.res)}</td>
+      <td data-label="R" class="${t.r>=0?'up':'down'}">${t.r>=0?'+':''}${t.r.toFixed(2)}R</td>
+      <td data-label="Emocional">${emo}</td>
+      <td data-label="Processo">${proc}</td>
+      <td data-label="Catalisador perto?">${cat}</td>
+      <td data-label="Notas"><input class="nota" value="${(t.nota||'').replace(/"/g,'&quot;')}" placeholder="anotação…" data-i="${i}"></td>
+      <td data-label=""><button class="btn ghost" data-del="${i}" title="Excluir" style="padding:2px 8px">×</button></td>`;
     tb.appendChild(tr);
   });
   // stats
