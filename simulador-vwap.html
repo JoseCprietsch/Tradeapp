@@ -1203,24 +1203,40 @@ function updateAuthUI(){
     gate.style.display='flex'; app.style.display='none'; head.style.display='none';
   }
 }
+function withTimeout(promise, ms, msg){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error(msg||'Tempo esgotado')),ms))
+  ]);
+}
 async function cloudSignUp(){
   const email=$('#authEmail').value.trim(), pass=$('#authPass').value;
   if(!email||pass.length<6) return setAuthMsg('Preencha email e uma senha com 6+ caracteres.',true);
   setAuthMsg('Criando conta…');
-  const {error}=await sb.auth.signUp({
-    email, password:pass,
-    options:{ emailRedirectTo: window.location.href.split('#')[0].split('?')[0] }
-  });
-  if(error) return setAuthMsg(error.message,true);
-  setAuthMsg('Conta criada! Se pedir confirmação por email, confira sua caixa de entrada — senão, já pode entrar.');
+  try{
+    const {error}=await withTimeout(sb.auth.signUp({
+      email, password:pass,
+      options:{ emailRedirectTo: window.location.href.split('#')[0].split('?')[0] }
+    }), 12000, 'Conexão com o servidor demorou demais.');
+    if(error) return setAuthMsg(error.message,true);
+    setAuthMsg('Conta criada! Se pedir confirmação por email, confira sua caixa de entrada — senão, já pode entrar.');
+  }catch(err){
+    console.error('Falha de conexão no cadastro:',err);
+    setAuthMsg('Não consegui conectar ao servidor. Verifique sua internet ou tente desativar bloqueadores de anúncio/rastreamento pra este site. ('+(err.message||'')+')',true);
+  }
 }
 async function cloudSignIn(){
   const email=$('#authEmail').value.trim(), pass=$('#authPass').value;
   if(!email||!pass) return setAuthMsg('Preencha email e senha.',true);
   setAuthMsg('Entrando…');
-  const {error}=await sb.auth.signInWithPassword({email,password:pass});
-  if(error) return setAuthMsg(error.message,true);
-  setAuthMsg('');
+  try{
+    const {error}=await withTimeout(sb.auth.signInWithPassword({email,password:pass}), 12000, 'Conexão com o servidor demorou demais.');
+    if(error) return setAuthMsg(error.message,true);
+    setAuthMsg('');
+  }catch(err){
+    console.error('Falha de conexão no login:',err);
+    setAuthMsg('Não consegui conectar ao servidor. Verifique sua internet ou tente desativar bloqueadores de anúncio/rastreamento pra este site. ('+(err.message||'')+')',true);
+  }
 }
 async function cloudSignOut(){ await sb.auth.signOut(); }
 $('#btnEntrar').addEventListener('click',cloudSignIn);
