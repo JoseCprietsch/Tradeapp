@@ -266,7 +266,7 @@
 </head>
 <body>
 
-<header>
+<header id="appHeader" style="display:none">
   <div class="brand">
     <b><a href="index.html" style="color:inherit;text-decoration:none">Pregão de Treino</a></b>
     <span>Simulador · setup VWAP</span>
@@ -1195,12 +1195,12 @@ function setAuthMsg(msg,isErr){
   el.textContent=msg||''; el.classList.toggle('err',!!isErr);
 }
 function updateAuthUI(){
-  const gate=$('#authGate'), app=$('#appMain');
+  const gate=$('#authGate'), app=$('#appMain'), head=$('#appHeader');
   if(currentUser){
-    gate.style.display='none'; app.style.display='';
+    gate.style.display='none'; app.style.display=''; head.style.display='';
     $('#authUserEmail').textContent=currentUser.email;
   } else {
-    gate.style.display='flex'; app.style.display='none';
+    gate.style.display='flex'; app.style.display='none'; head.style.display='none';
   }
 }
 async function cloudSignUp(){
