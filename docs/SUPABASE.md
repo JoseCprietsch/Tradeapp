@@ -1,12 +1,17 @@
 # Supabase — cadastro e login de usuários
 
-Status: 🔲 **planejado, ainda não conectado ao simulador.**
+Status: ✅ **conectado.** Login, cadastro e sincronização de diário/configurações
+já funcionam em `simulador-vwap.html`.
 
-## Por quê
+## Onde estão as credenciais
 
-O simulador hoje salva diário/progresso só no `localStorage` do navegador —
-some se trocar de aparelho ou limpar os dados do navegador. A ideia é permitir
-conta própria pra cada pessoa, com diário e progresso salvos na nuvem.
+`SUPABASE_URL` e `SUPABASE_ANON_KEY` ficam num bloco comentado perto do topo
+do `<script>` em `simulador-vwap.html` (procure por `const SUPABASE_URL`).
+Se o projeto Supabase for recriado, troque os dois valores ali.
+
+A chave `anon` é pública por design — ela só funciona dentro do que as
+políticas de RLS permitirem, então não tem problema ela estar visível no
+código do site. A chave `service_role` (essa sim secreta) nunca é usada aqui.
 
 ## Passo a passo pra criar o projeto
 
@@ -29,6 +34,13 @@ conta própria pra cada pessoa, com diário e progresso salvos na nuvem.
 
 ## O que o `schema.sql` cria
 
+Se for um projeto Supabase novo, rode só `schema.sql` (já vem correto).
+Se seu projeto já existia antes desta atualização, rode também
+`migration_001_ajuste_trades.sql` depois — corrige os tipos de duas colunas
+que não batiam com o formato real que o app usa (`data`/`hora` como texto,
+não como data/hora de calendário — o app guarda coisas como "13/08/2026" e
+um intervalo "10:05→10:22", não um valor único).
+
 | Tabela | Guarda | RLS |
 |---|---|---|
 | `profiles` | Um perfil por pessoa, criado automaticamente no cadastro | Cada um só vê/edita o próprio |
@@ -40,14 +52,14 @@ Toda tabela nasce com **Row Level Security ligado** e uma política do tipo
 `auth.uid() = user_id` — sem isso, qualquer pessoa com a chave anon conseguiria
 ler a tabela inteira de todo mundo. Não é opcional aqui.
 
-## Depois de configurado
+## Como funciona hoje
 
-Quando a URL + chave anon estiverem em mãos, o próximo passo é adicionar ao
-`simulador-vwap.html`:
-- SDK `@supabase/supabase-js` via CDN
-- Tela de login/cadastro (email+senha, com Google como próxima etapa)
-- Troca do `localStorage` por leitura/escrita nas tabelas acima quando logado
-- Uso sem login continua funcionando normalmente (localStorage como está hoje)
+- Sem login: tudo continua salvando no `localStorage`, exatamente como antes.
+- Com login: diário (`trades`) e configurações (`configuracoes`) sincronizam
+  com a nuvem — ao entrar, os dados da nuvem substituem o que estava local;
+  ao sair, volta a mostrar o que está salvo neste navegador.
+- A tabela `progresso` (fases do currículo, casos do Modo Exame) já existe
+  no banco mas **ainda não está conectada** — próximo passo planejado.
 
 ## Onde estão as credenciais
 

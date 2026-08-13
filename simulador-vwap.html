@@ -20,10 +20,13 @@
     boleta          → envio de ordem, cálculo de sizing por risco, R/R
     diário          → tabela de operações fechadas + métricas + export CSV
     acordeão mobile → cards que recolhem/expandem em telas pequenas
+    Supabase (login/nuvem) → autenticação e sincronização do diário/config
 
-  PRÓXIMO PASSO PLANEJADO: ligar ao Supabase (ver /supabase/schema.sql e
-  docs/SUPABASE.md) pra diário/progresso passarem de localStorage pra nuvem,
-  com login por conta.
+  CONTA NA NUVEM: quando a pessoa não está logada, tudo funciona 100% local
+  (localStorage), como sempre foi. Quando loga, diário e configurações passam
+  a sincronizar com o Supabase (ver /supabase/schema.sql e docs/SUPABASE.md).
+  Credenciais do projeto ficam no bloco "const SUPABASE_URL/SUPABASE_ANON_KEY"
+  perto do topo do <script> — troque ali se recriar o projeto Supabase.
 -->
 <html lang="pt-BR">
 <head>
@@ -32,6 +35,7 @@
 <title>Pregão de Treino — Simulador VWAP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#0B0E14; --panel:#12172290; --panel-solid:#121722; --panel2:#171E2C;
@@ -282,6 +286,25 @@
   </section>
 
   <aside class="side">
+    <div class="card" id="cardAuth">
+      <h2>Conta</h2>
+      <div class="body">
+        <div id="authLoggedOut">
+          <div class="frow full"><div><span class="flabel">Email</span><input type="email" id="authEmail" placeholder="voce@email.com"></div></div>
+          <div class="frow full"><div><span class="flabel">Senha</span><input type="password" id="authPass" placeholder="mínimo 6 caracteres"></div></div>
+          <button class="btn primary" id="btnEntrar" style="width:100%;margin-bottom:8px">Entrar</button>
+          <button class="btn ghost" id="btnCriarConta" style="width:100%">Criar conta</button>
+          <div id="authMsg" style="font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.5"></div>
+          <div style="font-size:11px;color:var(--faint);margin-top:10px;line-height:1.5">Sem conta, o simulador funciona normal, salvando só neste navegador.</div>
+        </div>
+        <div id="authLoggedIn" style="display:none">
+          <div class="riskline"><span>Logado como</span><b id="authUserEmail">—</b></div>
+          <div style="font-size:11px;color:var(--faint);margin:8px 0 12px;line-height:1.5">☁ Diário e configurações sincronizados na nuvem.</div>
+          <button class="btn ghost" id="btnSair" style="width:100%">Sair</button>
+        </div>
+      </div>
+    </div>
+
     <div class="card" id="examPanel">
       <h2>Modo Exame</h2>
       <div class="body">
@@ -411,6 +434,15 @@ const $ = s => document.querySelector(s);
 const fmt = v => v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtBRL = v => (v<0?'-':'') + 'R$ ' + fmt(Math.abs(v));
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ============ Supabase (login/nuvem) ============
+   A chave "anon" é pública por design — só funciona dentro do que as
+   políticas de RLS permitirem (ver /supabase/schema.sql). Se recriar o
+   projeto no Supabase, troque os dois valores abaixo. */
+const SUPABASE_URL = 'https://atmmupzdcjtyncvnxlie.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0bW11cHpkY2p0eW5jdm54bGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MzY4ODUsImV4cCI6MjEwMjIxMjg4NX0.LC4WpfayOqOfVb6v9RSOeJIj2Za1_NOyG7P3sUd-3a8';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentUser = null;
 
 /* ============ estado ============ */
 let candles=[];       // {t:Date, o,h,l,c,v, vwap, evento?}
@@ -690,6 +722,7 @@ $('#btnEditCrit').addEventListener('click',()=>{
     if(!criterios.length) criterios=['Critério 1'];
     localStorage.setItem(CRIT_KEY,JSON.stringify(criterios));
     editandoCrit=false; $('#btnEditCrit').textContent='editar';
+    if(currentUser) cloudSaveConfigDebounced();
   } else {
     editandoCrit=true; $('#btnEditCrit').textContent='salvar';
   }
@@ -909,6 +942,7 @@ $('#inRiscoPct').value = localStorage.getItem(RISCO_KEY)||1;
 ['inQtd','inStop','inAlvo','inCapital','inRiscoPct'].forEach(id=>$('#'+id).addEventListener('input',()=>{
   if(id==='inCapital')localStorage.setItem(CAP_KEY,$('#inCapital').value);
   if(id==='inRiscoPct')localStorage.setItem(RISCO_KEY,$('#inRiscoPct').value);
+  if((id==='inCapital'||id==='inRiscoPct') && currentUser) cloudSaveConfigDebounced();
   updRisco();
 }));
 function updRisco(){
@@ -1004,7 +1038,11 @@ function fecharPos(saida,motivo){
 const DK='simvwap_diario';
 let trades=JSON.parse(localStorage.getItem(DK)||'[]');
 function saveTrades(){localStorage.setItem(DK,JSON.stringify(trades))}
-function addTrade(t){trades.unshift(t);saveTrades();renderTrades()}
+function addTrade(t){
+  t.id = t.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random());
+  trades.unshift(t);saveTrades();renderTrades();
+  if(currentUser) cloudSaveTrade(t);
+}
 function renderTrades(){
   const tb=$('#tblBody');tb.innerHTML='';
   $('#tblEmpty').style.display=trades.length?'none':'block';
@@ -1048,12 +1086,22 @@ function renderTrades(){
 $('#tblBody').addEventListener('input',e=>{
   if(e.target.matches('.nota')){trades[+e.target.dataset.i].nota=e.target.value;saveTrades();}
 });
+$('#tblBody').addEventListener('change',e=>{
+  if(e.target.matches('.nota') && currentUser){
+    const t=trades[+e.target.dataset.i];
+    if(t) cloudUpdateTradeNota(t);
+  }
+});
 $('#tblBody').addEventListener('click',e=>{
   const b=e.target.closest('[data-del]');if(!b)return;
-  trades.splice(+b.dataset.del,1);saveTrades();renderTrades();
+  const [removed]=trades.splice(+b.dataset.del,1);saveTrades();renderTrades();
+  if(currentUser && removed) cloudDeleteTrade(removed.id);
 });
 $('#btnLimpar').addEventListener('click',()=>{
-  if(confirm('Apagar todo o diário? Essa ação não pode ser desfeita.')){trades=[];saveTrades();renderTrades();}
+  if(confirm('Apagar todo o diário? Essa ação não pode ser desfeita.')){
+    trades=[];saveTrades();renderTrades();
+    if(currentUser) cloudDeleteAllTrades();
+  }
 });
 $('#btnExport').addEventListener('click',()=>{
   const head='data;hora;ativo;lado;qtd;entrada;saida;motivo;resultado;R;emocional;seguiu_processo;perto_catalisador;criterios;nota\n';
@@ -1120,8 +1168,134 @@ $('#fileCsv').addEventListener('change',e=>{
   }
 })();
 
+/* ============ nuvem (auth + sincronização) ============ */
+function setAuthMsg(msg,isErr){
+  const el=$('#authMsg'); if(!el)return;
+  el.textContent=msg||''; el.style.color = isErr?'var(--baixa)':'var(--faint)';
+}
+function updateAuthUI(){
+  const out=$('#authLoggedOut'), inn=$('#authLoggedIn');
+  if(currentUser){ out.style.display='none'; inn.style.display='block'; $('#authUserEmail').textContent=currentUser.email; }
+  else { out.style.display='block'; inn.style.display='none'; }
+}
+async function cloudSignUp(){
+  const email=$('#authEmail').value.trim(), pass=$('#authPass').value;
+  if(!email||pass.length<6) return setAuthMsg('Preencha email e uma senha com 6+ caracteres.',true);
+  setAuthMsg('Criando conta…');
+  const {error}=await sb.auth.signUp({email,password:pass});
+  if(error) return setAuthMsg(error.message,true);
+  setAuthMsg('Conta criada! Se pedir confirmação por email, confira sua caixa de entrada — senão, já pode entrar.');
+}
+async function cloudSignIn(){
+  const email=$('#authEmail').value.trim(), pass=$('#authPass').value;
+  if(!email||!pass) return setAuthMsg('Preencha email e senha.',true);
+  setAuthMsg('Entrando…');
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error) return setAuthMsg(error.message,true);
+  setAuthMsg('');
+}
+async function cloudSignOut(){ await sb.auth.signOut(); }
+$('#btnEntrar').addEventListener('click',cloudSignIn);
+$('#btnCriarConta').addEventListener('click',cloudSignUp);
+$('#btnSair').addEventListener('click',cloudSignOut);
+
+function rowToTrade(row){
+  return {
+    id:row.id, data:row.data, hora:row.hora, ativo:row.ativo, lado:row.lado,
+    qtd:Number(row.qtd), entrada:Number(row.entrada), saida:Number(row.saida),
+    motivo:row.motivo, res:Number(row.resultado), r:Number(row.r),
+    emocional: row.emocional!=null?String(row.emocional):'',
+    seguiuProcesso: row.seguiu_processo, pertoEvento: row.perto_evento,
+    criterios: row.criterios||[], nota: row.nota||''
+  };
+}
+function tradeToRow(t){
+  return {
+    id:t.id, user_id:currentUser.id, data:t.data, hora:t.hora, ativo:t.ativo, lado:t.lado,
+    qtd:t.qtd, entrada:t.entrada, saida:t.saida, motivo:t.motivo,
+    resultado:t.res, r:t.r, emocional: t.emocional?+t.emocional:null,
+    seguiu_processo: t.seguiuProcesso===undefined?null:t.seguiuProcesso,
+    perto_evento: !!t.pertoEvento, criterios: t.criterios||[], nota: t.nota||''
+  };
+}
+async function cloudSaveTrade(t){
+  const {error}=await sb.from('trades').insert(tradeToRow(t));
+  if(error) console.warn('Falha ao salvar trade na nuvem:',error.message);
+}
+async function cloudUpdateTradeNota(t){
+  const {error}=await sb.from('trades').update({nota:t.nota}).eq('id',t.id);
+  if(error) console.warn('Falha ao salvar nota na nuvem:',error.message);
+}
+async function cloudDeleteTrade(id){
+  if(!id)return;
+  const {error}=await sb.from('trades').delete().eq('id',id);
+  if(error) console.warn('Falha ao excluir trade na nuvem:',error.message);
+}
+async function cloudDeleteAllTrades(){
+  const {error}=await sb.from('trades').delete().eq('user_id',currentUser.id);
+  if(error) console.warn('Falha ao limpar diário na nuvem:',error.message);
+}
+async function cloudSaveConfig(){
+  if(!currentUser)return;
+  const payload={
+    user_id:currentUser.id,
+    capital_total:+$('#inCapital').value||1000,
+    risco_pct:+$('#inRiscoPct').value||1,
+    criterios: criterios,
+    updated_at:new Date().toISOString()
+  };
+  const {error}=await sb.from('configuracoes').upsert(payload,{onConflict:'user_id'});
+  if(error) console.warn('Falha ao salvar configuração na nuvem:',error.message);
+}
+let cloudCfgTimer=null;
+function cloudSaveConfigDebounced(){
+  clearTimeout(cloudCfgTimer);
+  cloudCfgTimer=setTimeout(cloudSaveConfig,600);
+}
+async function loadCloudData(){
+  const {data:cloudTrades,error:e1}=await sb.from('trades').select('*').order('created_at',{ascending:false});
+  if(!e1 && cloudTrades){
+    trades=cloudTrades.map(rowToTrade);
+    saveTrades(); renderTrades();
+  } else if(e1) console.warn('Falha ao carregar diário da nuvem:',e1.message);
+
+  const {data:cfg,error:e2}=await sb.from('configuracoes').select('*').eq('user_id',currentUser.id).maybeSingle();
+  if(!e2){
+    if(cfg){
+      if(cfg.capital_total!=null){$('#inCapital').value=cfg.capital_total;localStorage.setItem(CAP_KEY,cfg.capital_total);}
+      if(cfg.risco_pct!=null){$('#inRiscoPct').value=cfg.risco_pct;localStorage.setItem(RISCO_KEY,cfg.risco_pct);}
+      if(Array.isArray(cfg.criterios)&&cfg.criterios.length){
+        criterios=cfg.criterios; localStorage.setItem(CRIT_KEY,JSON.stringify(criterios)); renderCrit();
+      }
+      updRisco();
+    } else {
+      cloudSaveConfig(); // primeira vez logado: sobe o que já tinha local
+    }
+  } else console.warn('Falha ao carregar configuração da nuvem:',e2.message);
+}
+function resetToLocal(){
+  trades=JSON.parse(localStorage.getItem(DK)||'[]'); renderTrades();
+  $('#inCapital').value=localStorage.getItem(CAP_KEY)||1000;
+  $('#inRiscoPct').value=localStorage.getItem(RISCO_KEY)||1;
+  criterios=JSON.parse(localStorage.getItem(CRIT_KEY)||'null')||criterios;
+  renderCrit(); updRisco();
+}
+async function initAuth(){
+  const {data:{session}}=await sb.auth.getSession();
+  currentUser=session?.user||null;
+  updateAuthUI();
+  if(currentUser) loadCloudData();
+  sb.auth.onAuthStateChange((_event,session)=>{
+    const was=currentUser;
+    currentUser=session?.user||null;
+    updateAuthUI();
+    if(currentUser && currentUser.id!==was?.id) loadCloudData();
+    if(!currentUser && was) resetToLocal();
+  });
+}
+
 /* ============ init ============ */
-setLado('buy');renderCrit();renderTrades();novoPregao();resize();
+setLado('buy');renderCrit();renderTrades();novoPregao();resize();initAuth();
 </script>
 </body>
 </html>

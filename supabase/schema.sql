@@ -30,8 +30,8 @@ create policy "usuário cria o próprio perfil"
 create table if not exists public.trades (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  data date not null,
-  hora time not null,
+  data text not null,               -- texto (ex: "13/08/2026"), não é uma data real de calendário
+  hora text not null,               -- texto (ex: "10:05→10:22"), é um intervalo, não um horário único
   ativo text not null,
   lado text not null check (lado in ('buy','sell')),
   qtd numeric not null,
@@ -43,6 +43,7 @@ create table if not exists public.trades (
   emocional int,
   seguiu_processo boolean,
   perto_evento boolean,
+  criterios jsonb,                  -- snapshot dos critérios confirmados nessa operação
   nota text,
   created_at timestamptz not null default now()
 );
