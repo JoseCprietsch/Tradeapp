@@ -214,7 +214,7 @@ function drawSvgFallback(){
     const deckMat  = new THREE.MeshStandardMaterial({color:0x0e0f13, metalness:0.55, roughness:0.5});
 
     // ---- base (chassi inferior) ----
-    const baseW=3.7, baseD=2.5, baseH=0.16;
+    const baseW=3.7, baseD=2.5, baseH=0.11;
     const base = new THREE.Mesh(new THREE.BoxGeometry(baseW,baseH,baseD), shellMat);
     base.position.y = -1.02;
     group.add(base);
@@ -223,39 +223,57 @@ function drawSvgFallback(){
     frontEdge.position.set(0,-1.02-baseH/2-0.005, baseD/2);
     group.add(frontEdge);
 
-    // ---- teclado: textura desenhada proceduralmente (grade de teclas) ----
+    // ---- teclado: textura desenhada proceduralmente, com efeito de retroiluminação ----
     const kbCanvas = document.createElement('canvas');
     kbCanvas.width=512; kbCanvas.height=340;
     const kctx = kbCanvas.getContext('2d');
-    kctx.fillStyle='#0b0c10'; kctx.fillRect(0,0,512,340);
-    const cols=14, rows=5, padX=14, padY=14, gap=5;
+    kctx.fillStyle='#050609'; kctx.fillRect(0,0,512,340);
+    const cols=14, rows=5, padX=14, padY=14, gap=6;
     const cw=(512-padX*2-gap*(cols-1))/cols, ch=(240-padY*2-gap*(rows-1))/rows;
-    kctx.fillStyle='#1c1f28';
+
+    function keyRect(x,y,w,h){
+      kctx.beginPath();
+      kctx.roundRect ? kctx.roundRect(x,y,w,h,4) : kctx.rect(x,y,w,h);
+    }
+    const keyBoxes = [];
     for(let r=0;r<rows;r++){
       for(let c=0;c<cols;c++){
-        const x=padX+c*(cw+gap), y=padY+r*(ch+gap);
-        kctx.beginPath();
-        kctx.roundRect ? kctx.roundRect(x,y,cw,ch,3) : kctx.rect(x,y,cw,ch);
-        kctx.fill();
+        keyBoxes.push([padX+c*(cw+gap), padY+r*(ch+gap), cw, ch]);
       }
     }
-    // barra de espaço
-    kctx.fillStyle='#1c1f28';
-    const spY = padY+rows*(ch+gap);
-    kctx.beginPath();
-    const spX = padX+cw*3, spW = cw*6+gap*5;
-    kctx.roundRect ? kctx.roundRect(spX,spY,spW,ch,3) : kctx.rect(spX,spY,spW,ch);
-    kctx.fill();
+    const spY = padY+rows*(ch+gap), spX = padX+cw*3, spW = cw*6+gap*5;
+    keyBoxes.push([spX,spY,spW,ch]); // barra de espaço
+
+    // halo retroiluminado (dourado da marca, desfocado atrás de cada tecla)
+    kctx.save();
+    kctx.filter = 'blur(5px)';
+    kctx.fillStyle = 'rgba(217,164,65,0.85)';
+    keyBoxes.forEach(([x,y,w,h])=>{ keyRect(x,y,w,h); kctx.fill(); });
+    kctx.restore();
+
+    // corpo da tecla, mais escuro por cima do halo (só a "luz vazando nas bordas" fica visível)
+    kctx.fillStyle = '#14161c';
+    keyBoxes.forEach(([x,y,w,h])=>{ keyRect(x+1.5,y+1.5,w-3,h-3); kctx.fill(); });
+
+    // brilho fino no topo de cada tecla (bevel)
+    kctx.strokeStyle='rgba(255,255,255,0.10)'; kctx.lineWidth=1;
+    keyBoxes.forEach(([x,y,w,h])=>{ keyRect(x+1.5,y+1.5,w-3,h-3); kctx.stroke(); });
+
     // trackpad
-    kctx.fillStyle='#111319';
-    kctx.beginPath();
-    kctx.roundRect ? kctx.roundRect(512/2-90, 292, 180, 40, 6) : kctx.rect(512/2-90,292,180,40);
-    kctx.fill();
-    kctx.strokeStyle='#2a2e38'; kctx.lineWidth=1.5; kctx.stroke();
+    kctx.fillStyle='#101216';
+    keyRect(512/2-95, 292, 190, 40); kctx.fill();
+    kctx.strokeStyle='rgba(217,164,65,0.35)'; kctx.lineWidth=1.2; kctx.stroke();
+
     const kbTexture = new THREE.CanvasTexture(kbCanvas);
     kbTexture.encoding = THREE.sRGBEncoding;
 
-    const deck = new THREE.Mesh(new THREE.PlaneGeometry(3.42,2.28), new THREE.MeshStandardMaterial({map:kbTexture, metalness:0.1, roughness:0.7}));
+    const deck = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.42,2.28),
+      new THREE.MeshStandardMaterial({
+        map:kbTexture, emissiveMap:kbTexture, emissive:0xD9A441, emissiveIntensity:0.35,
+        metalness:0.1, roughness:0.75
+      })
+    );
     deck.rotation.x = -Math.PI/2;
     deck.position.set(0,-0.935,0.02);
     group.add(deck);
@@ -267,7 +285,7 @@ function drawSvgFallback(){
     lidPivot.rotation.x = hingeAngle;
     group.add(lidPivot);
 
-    const bezel = new THREE.Mesh(new THREE.BoxGeometry(screenW,screenH,0.09), shellMat);
+    const bezel = new THREE.Mesh(new THREE.BoxGeometry(screenW,screenH,0.055), shellMat);
     bezel.position.set(0, screenH/2, -0.02);
     lidPivot.add(bezel);
     // moldura fina visível (borda mais clara)
