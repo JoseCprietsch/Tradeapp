@@ -11,7 +11,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pregão de Treino — Simule antes de arriscar</title>
+<title>TapeDrill — Simule antes de arriscar</title>
 <meta name="description" content="Simulador de pregão para treinar leitura de fluxo, VWAP e disciplina de risco antes de operar com capital real.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;1,500&family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -21,7 +21,7 @@
 
 <nav class="site">
   <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;width:100%">
-    <a href="index.html" class="logo" style="text-decoration:none;color:inherit"><span class="dot"></span>Pregão de Treino</a>
+    <a href="index.html" class="logo" style="text-decoration:none;color:inherit"><span class="dot"></span>TapeDrill</a>
     <div class="links">
       <a href="index.html" class="active">Início</a>
       <a href="cenarios.html">Cenários</a>
@@ -30,6 +30,10 @@
     <a href="simulador-vwap.html" class="cta">Abrir simulador</a>
   </div>
 </nav>
+
+<div class="ticker-band">
+  <div class="ticker-track" id="tickerTrack"></div>
+</div>
 
 <header class="hero">
   <div class="wrap hero-grid">
@@ -56,9 +60,9 @@
   </div>
 </header>
 
-<section class="stat-band">
+<section class="stat-band" data-reveal>
   <div class="wrap grid">
-    <div class="num">74–89<span>% dos day traders de varejo perdem dinheiro de forma persistente</span></div>
+    <div class="num" id="statNum">0<span>% dos day traders de varejo perdem dinheiro de forma persistente</span></div>
     <div class="copy">
       <p>Esse número se repete em estudos ao longo de quase três décadas — no Brasil, dados da CVM e da FGV apontam praticamente o mesmo padrão. <b>Esse simulador não muda essa estatística.</b></p>
       <p>Ele te dá o que a maioria pula direto: milhares de decisões erradas sem custo, antes da primeira decisão errada com capital de verdade. Probabilidade e gestão de risco primeiro, execução depois.</p>
@@ -73,7 +77,7 @@
       <h2>Quatro passos, sempre na mesma ordem</h2>
       <p>A ordem importa mais do que parece — pular etapas é o erro mais comum de quem começa.</p>
     </div>
-    <div class="steps">
+    <div class="steps" data-reveal-stagger>
       <div class="step"><div class="n">01</div><h3>Leia o fluxo</h3><p>Identifique rejeições no VWAP e meça o tempo de sustentação antes de considerar qualquer entrada.</p></div>
       <div class="step"><div class="n">02</div><h3>Confirme os critérios</h3><p>O gate não libera a ordem até os 4 critérios do setup estarem presentes — inclusive R/R mínimo.</p></div>
       <div class="step"><div class="n">03</div><h3>Envie a ordem simulada</h3><p>Tamanho calculado por % de risco do capital, nunca no chute. Stop e alvo definidos antes de entrar.</p></div>
@@ -89,7 +93,7 @@
       <h2>Quatro cenários desenhados à mão</h2>
       <p>Cada um testa uma leitura diferente do mesmo padrão — com gabarito comentado.</p>
     </div>
-    <div class="cards">
+    <div class="cards" data-reveal-stagger>
       <a href="simulador-vwap.html" class="card">
         <span class="tag sell">Não operar</span>
         <h3>Rompimento recente</h3>
@@ -119,7 +123,7 @@
 </section>
 
 <section class="section" style="padding-top:0">
-  <div class="wrap cta-band">
+  <div class="wrap cta-band" data-reveal>
     <div>
       <h2 style="font-family:var(--font-display);font-size:26px;font-weight:600;margin-bottom:8px">Pronto pro próximo pregão?</h2>
       <p style="color:var(--muted);font-size:14.5px">R$ fictícios, dados sintéticos, zero risco real.</p>
@@ -131,7 +135,7 @@
 <footer class="site">
   <div class="wrap grid">
     <div>
-      <div class="brand">Pregão de Treino</div>
+      <div class="brand">TapeDrill</div>
       <p>Ferramenta educacional. Não é recomendação de investimento e não garante resultado — o mercado não garante ninguém.</p>
     </div>
     <div class="cols">
@@ -146,33 +150,31 @@
 </footer>
 
 <script>
-// Desenha o padrão-assinatura: rejeição tripla no VWAP, depois rompimento sustentado
+/* ============ gráfico do hero — desenha o padrão e depois continua ao vivo ============ */
 (function(){
   const svg = document.getElementById('candleGroup');
   const NS = 'http://www.w3.org/2000/svg';
   const vwapY = 150;
-  const candleW = 6, gap = 3.4;
+  const candleW = 6, gap = 3.4, per = candleW+gap;
+  const maxCandles = 52;
   let x = 8;
 
-  // sequência: perto do vwap oscilando (rejeição), depois sobe e sustenta
-  const path = [
-    ...[168,158,172,152,166,151,170,153].map(y=>({y, up: y<vwapY})), // rejeições
-    150,148,142,130,118,108,100,94,90,86,84,82 // rompimento e sustentação
+  const seedPath = [
+    ...[168,158,172,152,166,151,170,153].map(y=>y),
+    150,148,142,130,118,108,100,94,90,86,84,82
   ];
+  let lastY = seedPath[seedPath.length-1];
+  const candles = []; // {g, wick, body}
 
-  const ys = path.map(v => typeof v === 'object' ? v.y : v);
-  const candles = [];
-
-  ys.forEach((y, i) => {
-    const open = i===0 ? y+6 : ys[i-1];
-    const close = y;
+  function pushCandle(y, animate){
+    const open = lastY, close = y;
     const isUp = close <= open;
     const top = Math.min(open,close), bot = Math.max(open,close);
     const wickTop = top - (2 + Math.random()*4);
     const wickBot = bot + (2 + Math.random()*4);
 
     const g = document.createElementNS(NS,'g');
-    g.setAttribute('opacity','0');
+    g.setAttribute('opacity', animate ? '0' : '1');
     g.style.transition = 'opacity .35s ease';
 
     const wick = document.createElementNS(NS,'line');
@@ -190,24 +192,135 @@
     g.appendChild(body);
 
     svg.appendChild(g);
-    candles.push(g);
-    x += candleW + gap;
-  });
+    candles.push({g,x});
+    x += per;
+    lastY = y;
+    return g;
+  }
+
+  const seedGroups = seedPath.map((y,i)=> i===0 ? pushCandle(y,false) : pushCandle(y,true) );
+
+  function shiftLeft(){
+    x -= per;
+    candles.forEach(c=>{
+      c.x -= per;
+      c.g.querySelectorAll('line,rect').forEach(el=>{
+        if(el.tagName==='line'){ el.setAttribute('x1', +el.getAttribute('x1')-per); el.setAttribute('x2', +el.getAttribute('x2')-per); }
+        else { el.setAttribute('x', +el.getAttribute('x')-per); }
+      });
+    });
+    const first = candles[0];
+    if(first && first.x < -candleW){
+      first.g.remove();
+      candles.shift();
+    }
+  }
+
+  // caminhada aleatória suave, com leve "ímã" de volta ao vwap — mantém o gráfico legível
+  function nextY(){
+    const pull = (vwapY - lastY) * 0.02;
+    const step = (Math.random()-0.5) * 14 + pull;
+    let y = lastY + step;
+    y = Math.max(60, Math.min(196, y));
+    return y;
+  }
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduceMotion){
-    candles.forEach(c=>c.setAttribute('opacity','1'));
-  } else {
-    let i = 0;
-    const reveal = () => {
-      if(i < candles.length){
-        candles[i].setAttribute('opacity','1');
-        i++;
-        setTimeout(reveal, 55);
-      }
-    };
-    setTimeout(reveal, 300);
+  let i = 1;
+  function revealSeed(){
+    if(i < seedGroups.length){
+      seedGroups[i].setAttribute('opacity','1');
+      i++;
+      setTimeout(revealSeed, 55);
+    } else {
+      if(!reduceMotion) setTimeout(startLive, 900);
+    }
   }
+  function startLive(){
+    setInterval(()=>{
+      if(candles.length >= maxCandles) shiftLeft();
+      pushCandle(nextY(), true);
+    }, 1400);
+  }
+  if(reduceMotion){ seedGroups.forEach(g=>g.setAttribute('opacity','1')); }
+  else setTimeout(revealSeed, 300);
+})();
+
+/* ============ inclinação 3D no card do hero, seguindo o mouse ============ */
+(function(){
+  const card = document.querySelector('.tape-wrap');
+  if(!card || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let raf=null;
+  card.addEventListener('mousemove', e=>{
+    const r = card.getBoundingClientRect();
+    const px = (e.clientX - r.left)/r.width - 0.5;
+    const py = (e.clientY - r.top)/r.height - 0.5;
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(()=>{
+      card.style.transform = `perspective(900px) rotateY(${px*6}deg) rotateX(${-py*6}deg) translateZ(0)`;
+    });
+  });
+  card.addEventListener('mouseleave', ()=>{ card.style.transform = 'perspective(900px) rotateY(0) rotateX(0)'; });
+})();
+
+/* ============ ticker ao vivo ============ */
+(function(){
+  const items = [
+    {t:'TRN4 22,18', c:'up', d:'rejeição no VWAP confirmada'},
+    {t:'PPLA3', c:'down', d:'sustentação por 6 candles'},
+    {t:'R/R mínimo', c:'', d:'1,5 : 1'},
+    {t:'Fase 3', c:'', d:'100+ trades simulados'},
+    {t:'UNIP3', c:'up', d:'rompimento com volume'},
+    {t:'74–89%', c:'down', d:'dos traders de varejo perdem'},
+    {t:'VWAP', c:'', d:'referência institucional'},
+    {t:'Modo Exame', c:'', d:'4 casos com gabarito comentado'},
+    {t:'BBAS3', c:'down', d:'rejeição dupla, sem confirmação'},
+    {t:'Diário', c:'', d:'expectância em unidades de R'},
+  ];
+  const track = document.getElementById('tickerTrack');
+  if(!track) return;
+  function renderOnce(){
+    return items.map(it=>`<span><b>${it.t}</b>${it.c?`<i class="${it.c}">${it.c==='up'?'▲':'▼'}</i>`:''}<span class="sep">·</span>${it.d}</span>`).join('<span class="sep">•</span>');
+  }
+  track.innerHTML = renderOnce() + '<span class="sep">•</span>' + renderOnce();
+})();
+
+/* ============ revelação ao rolar a página ============ */
+(function(){
+  const els = document.querySelectorAll('[data-reveal], [data-reveal-stagger]');
+  if(!('IntersectionObserver' in window) || !els.length){ els.forEach(e=>e.classList.add('in')); return; }
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){ entry.target.classList.add('in'); io.unobserve(entry.target); }
+    });
+  }, {threshold:0.15, rootMargin:'0px 0px -60px 0px'});
+  els.forEach(el=>io.observe(el));
+})();
+
+/* ============ contador animado da estatística ============ */
+(function(){
+  const el = document.getElementById('statNum');
+  if(!el) return;
+  const label = el.querySelector('span');
+  const target = 89, floor = 74;
+  let done = false;
+  function count(){
+    if(done) return; done = true;
+    const dur = 1400, start = performance.now();
+    function tick(now){
+      const p = Math.min(1, (now-start)/dur);
+      const eased = 1 - Math.pow(1-p, 3);
+      const val = Math.round(floor + (target-floor)*eased);
+      el.childNodes[0].nodeValue = (p<1 ? val : '74–89') + '';
+      if(p<1) requestAnimationFrame(tick); else { el.innerHTML='74–89'; el.appendChild(label); }
+    }
+    requestAnimationFrame(tick);
+  }
+  if('IntersectionObserver' in window){
+    new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if(e.isIntersecting) count(); });
+    }, {threshold:0.4}).observe(el);
+  } else count();
 })();
 </script>
 </body>
