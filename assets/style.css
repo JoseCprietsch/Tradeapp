@@ -192,6 +192,22 @@ nav.site .cta{
 .step p{font-size:13.5px; color:var(--muted); line-height:1.55}
 
 /* ---- scenario cards ---- */
+/* ---- capacidades técnicas (grid de 6) ---- */
+.capgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+.capcard{
+  background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:22px;
+  transition:border-color .15s, transform .15s;
+}
+.capcard:hover{border-color:var(--gold); transform:translateY(-2px)}
+.capcard .captag{
+  font-family:var(--font-mono); font-size:10.5px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--gold); margin-bottom:12px;
+}
+.capcard h3{font-size:15.5px; font-weight:600; line-height:1.35; margin-bottom:8px}
+.capcard p{font-size:13px; color:var(--muted); line-height:1.55}
+@media (max-width:860px){ .capgrid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:640px){ .capgrid{grid-template-columns:1fr} }
+
 .cards{display:grid; grid-template-columns:repeat(4,1fr); gap:16px}
 .card{
   background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px;
