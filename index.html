@@ -290,31 +290,49 @@ function drawSvgFallback(){
   }
 
   function tryLoadFbx(){
-    if(typeof THREE.FBXLoader === 'undefined'){ buildProceduralLaptop(); return; }
+    if(typeof THREE.FBXLoader === 'undefined'){
+      console.warn('[TapeDrill] THREE.FBXLoader não carregou (script bloqueado ou CDN fora do ar) — usando notebook procedural.');
+      buildProceduralLaptop(); return;
+    }
+    console.log('[TapeDrill] FBXLoader disponível, carregando assets/models/Laptop.fbx…');
     const texLoader = new THREE.TextureLoader();
-    const baseMap = texLoader.load('assets/models/Laptop_BaseMap.jpg');
-    const normalMap = texLoader.load('assets/models/Laptop_Normal.jpg');
+    const baseMap = texLoader.load('assets/models/Laptop_BaseMap.jpg',
+      ()=>console.log('[TapeDrill] BaseMap carregado'),
+      undefined, e=>console.error('[TapeDrill] Falha ao carregar BaseMap:',e));
+    const normalMap = texLoader.load('assets/models/Laptop_Normal.jpg',
+      ()=>console.log('[TapeDrill] NormalMap carregado'),
+      undefined, e=>console.error('[TapeDrill] Falha ao carregar NormalMap:',e));
     const loader = new THREE.FBXLoader();
     loader.load('assets/models/Laptop.fbx', (obj)=>{
+      console.log('[TapeDrill] Laptop.fbx carregado. Filhos:', obj.children.length);
       try{
+        let meshCount = 0;
         obj.traverse(child=>{
           if(child.isMesh){
+            meshCount++;
             child.material = new THREE.MeshStandardMaterial({
               map:baseMap, normalMap:normalMap, metalness:0.55, roughness:0.45
             });
           }
         });
+        console.log('[TapeDrill] Meshes encontrados no FBX:', meshCount);
+        if(meshCount === 0) throw new Error('Nenhum mesh encontrado dentro do FBX carregado.');
 
         // centraliza e normaliza a escala usando o bounding box real do modelo
         const box = new THREE.Box3().setFromObject(obj);
         const size = new THREE.Vector3(); box.getSize(size);
         const center = new THREE.Vector3(); box.getCenter(center);
-        const maxDim = Math.max(size.x,size.y,size.z) || 1;
+        console.log('[TapeDrill] Bounding box do modelo — tamanho:', size, 'centro:', center);
+        const maxDim = Math.max(size.x,size.y,size.z);
+        if(!isFinite(maxDim) || maxDim <= 0){
+          throw new Error('Bounding box inválido (maxDim='+maxDim+') — o modelo provavelmente não tem geometria válida.');
+        }
         const scale = FBX_TARGET_SIZE / maxDim;
+        console.log('[TapeDrill] Escala aplicada:', scale);
 
         const group = new THREE.Group();
-        obj.position.sub(center);
         obj.scale.setScalar(scale);
+        obj.position.set(-center.x*scale, -center.y*scale, -center.z*scale);
         obj.rotation.set(FBX_ROTATION.x, FBX_ROTATION.y, FBX_ROTATION.z);
         group.add(obj);
 
@@ -329,12 +347,13 @@ function drawSvgFallback(){
 
         scene.add(group);
         startAnimating(group, 0.32, 0.04);
+        console.log('[TapeDrill] Notebook FBX adicionado à cena com sucesso.');
       }catch(err){
-        console.error('Falha ao montar o modelo FBX, usando notebook procedural:', err);
+        console.error('[TapeDrill] Falha ao montar o modelo FBX, usando notebook procedural:', err);
         buildProceduralLaptop();
       }
     }, undefined, (err)=>{
-      console.error('Falha ao carregar o FBX, usando notebook procedural:', err);
+      console.error('[TapeDrill] Falha ao carregar o arquivo FBX, usando notebook procedural:', err);
       buildProceduralLaptop();
     });
   }
