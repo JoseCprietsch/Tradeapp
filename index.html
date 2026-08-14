@@ -460,6 +460,66 @@ function drawSvgFallback(){
   }
 })();
 
+/* ============ ticker ao vivo ============ */
+(function(){
+  const items = [
+    {t:'TRN4 22,18', c:'up', d:'rejeição no VWAP confirmada'},
+    {t:'PPLA3', c:'down', d:'sustentação por 6 candles'},
+    {t:'R/R mínimo', c:'', d:'1,5 : 1'},
+    {t:'Fase 3', c:'', d:'100+ trades simulados'},
+    {t:'UNIP3', c:'up', d:'rompimento com volume'},
+    {t:'74–89%', c:'down', d:'dos traders de varejo perdem'},
+    {t:'VWAP', c:'', d:'referência institucional'},
+    {t:'Modo Exame', c:'', d:'4 casos com gabarito comentado'},
+    {t:'BBAS3', c:'down', d:'rejeição dupla, sem confirmação'},
+    {t:'Diário', c:'', d:'expectância em unidades de R'},
+  ];
+  const track = document.getElementById('tickerTrack');
+  if(!track) return;
+  function renderOnce(){
+    return items.map(it=>`<span><b>${it.t}</b>${it.c?`<i class="${it.c}">${it.c==='up'?'▲':'▼'}</i>`:''}<span class="sep">·</span>${it.d}</span>`).join('<span class="sep">•</span>');
+  }
+  track.innerHTML = renderOnce() + '<span class="sep">•</span>' + renderOnce();
+})();
+
+/* ============ revelação ao rolar a página ============ */
+(function(){
+  const els = document.querySelectorAll('[data-reveal], [data-reveal-stagger]');
+  if(!('IntersectionObserver' in window) || !els.length){ els.forEach(e=>e.classList.add('in')); return; }
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){ entry.target.classList.add('in'); io.unobserve(entry.target); }
+    });
+  }, {threshold:0.15, rootMargin:'0px 0px -60px 0px'});
+  els.forEach(el=>io.observe(el));
+})();
+
+/* ============ contador animado da estatística ============ */
+(function(){
+  const el = document.getElementById('statNum');
+  if(!el) return;
+  const label = el.querySelector('span');
+  const target = 89, floor = 74;
+  let done = false;
+  function count(){
+    if(done) return; done = true;
+    const dur = 1400, start = performance.now();
+    function tick(now){
+      const p = Math.min(1, (now-start)/dur);
+      const eased = 1 - Math.pow(1-p, 3);
+      const val = Math.round(floor + (target-floor)*eased);
+      el.childNodes[0].nodeValue = (p<1 ? val : '74–89') + '';
+      if(p<1) requestAnimationFrame(tick); else { el.innerHTML='74–89'; el.appendChild(label); }
+    }
+    requestAnimationFrame(tick);
+  }
+  if('IntersectionObserver' in window){
+    new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if(e.isIntersecting) count(); });
+    }, {threshold:0.4}).observe(el);
+  } else count();
+})();
+
 /* ============ selos 3D por seção (ícone bespoke) ============ */
 (function(){
   if(typeof THREE==='undefined') return;
