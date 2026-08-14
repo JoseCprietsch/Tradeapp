@@ -275,7 +275,10 @@
   </div>
 </header>
 
-<div id="authRedirect" style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:13px">Verificando sua sessão…</div>
+<div id="authRedirect" style="min-height:100vh;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;color:var(--faint);font-size:13px">
+  <span>Verificando sua sessão…</span>
+  <a href="login/" id="authRedirectFallback" style="display:none;color:var(--vwap)">Está demorando? Clique aqui pra ir direto ao login →</a>
+</div>
 
 <main id="appMain" style="display:none">
   <section class="card" id="chartCard">
@@ -1261,17 +1264,29 @@ function resetToLocal(){
   renderCrit(); updRisco();
 }
 async function initAuth(){
-  const {data:{session}}=await sb.auth.getSession();
-  currentUser=session?.user||null;
-  updateAuthUI();
-  if(currentUser) loadCloudData();
-  sb.auth.onAuthStateChange((_event,session)=>{
-    const was=currentUser;
+  const fallbackTimer = setTimeout(()=>{
+    const link = $('#authRedirectFallback');
+    if(link) link.style.display='inline';
+  }, 4000);
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    clearTimeout(fallbackTimer);
     currentUser=session?.user||null;
     updateAuthUI();
-    if(currentUser && currentUser.id!==was?.id) loadCloudData();
-    if(!currentUser && was) resetToLocal();
-  });
+    if(currentUser) loadCloudData();
+    sb.auth.onAuthStateChange((_event,session)=>{
+      const was=currentUser;
+      currentUser=session?.user||null;
+      updateAuthUI();
+      if(currentUser && currentUser.id!==was?.id) loadCloudData();
+      if(!currentUser && was) resetToLocal();
+    });
+  }catch(err){
+    console.error('[TapeDrill] Falha ao verificar sessão:',err);
+    clearTimeout(fallbackTimer);
+    const link = $('#authRedirectFallback');
+    if(link) link.style.display='inline';
+  }
 }
 
 /* ============ init ============ */
