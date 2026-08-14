@@ -16,6 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;1,500&family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
@@ -72,7 +73,8 @@
 
 <section class="section">
   <div class="wrap">
-    <div class="section-head">
+    <div class="section-head centered" style="max-width:60ch">
+      <div class="icon-card"><canvas id="iconCycle"></canvas></div>
       <div class="eyebrow">o ciclo de cada operação simulada</div>
       <h2>Quatro passos, sempre na mesma ordem</h2>
       <p>A ordem importa mais do que parece — pular etapas é o erro mais comum de quem começa.</p>
@@ -88,7 +90,8 @@
 
 <section class="section" style="padding-top:0">
   <div class="wrap">
-    <div class="section-head">
+    <div class="section-head centered" style="max-width:60ch">
+      <div class="icon-card"><canvas id="iconExam"></canvas></div>
       <div class="eyebrow">modo exame</div>
       <h2>Quatro cenários desenhados à mão</h2>
       <p>Cada um testa uma leitura diferente do mesmo padrão — com gabarito comentado.</p>
@@ -321,6 +324,67 @@
       entries.forEach(e=>{ if(e.isIntersecting) count(); });
     }, {threshold:0.4}).observe(el);
   } else count();
+})();
+
+/* ============ selos 3D por seção (ícone bespoke) ============ */
+(function(){
+  if(typeof THREE==='undefined') return;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function makeIconScene(canvas, build){
+    if(!canvas) return;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
+    camera.position.set(0,0,5.2);
+    const renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    renderer.setSize(96,96,false);
+
+    const key = new THREE.PointLight(0xD9A441,16,20); key.position.set(3,2,4); scene.add(key);
+    const fill = new THREE.PointLight(0x4DA3FF,6,20); fill.position.set(-3,-2,3); scene.add(fill);
+    scene.add(new THREE.AmbientLight(0x1a1a1a,1.1));
+
+    const obj = build(scene, THREE);
+
+    function frame(t){
+      if(!reduceMotion && obj){
+        obj.rotation.y = t*0.00055;
+        obj.rotation.x = Math.sin(t*0.00035)*0.28;
+      }
+      renderer.render(scene, camera);
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ciclo: anel com uma esfera orbitando — representa a repetição dos 4 passos
+  makeIconScene(document.getElementById('iconCycle'), (scene,T)=>{
+    const group = new T.Group();
+    const torus = new T.Mesh(
+      new T.TorusGeometry(1.12,0.13,16,60),
+      new T.MeshStandardMaterial({color:0x12141a, metalness:0.85, roughness:0.28})
+    );
+    group.add(torus);
+    const orb = new T.Mesh(
+      new T.SphereGeometry(0.24,24,24),
+      new T.MeshStandardMaterial({color:0xD9A441, metalness:0.3, roughness:0.3, emissive:0xD9A441, emissiveIntensity:0.3})
+    );
+    orb.position.set(1.12,0,0);
+    group.add(orb);
+    group.rotation.x = 0.5;
+    scene.add(group);
+    return group;
+  });
+
+  // exame: octaedro facetado com arestas douradas — representa precisão/gabarito
+  makeIconScene(document.getElementById('iconExam'), (scene,T)=>{
+    const geo = new T.OctahedronGeometry(1.28,0);
+    const mesh = new T.Mesh(geo, new T.MeshStandardMaterial({color:0x12141a, metalness:0.9, roughness:0.16, flatShading:true}));
+    const edges = new T.EdgesGeometry(geo);
+    mesh.add(new T.LineSegments(edges, new T.LineBasicMaterial({color:0xD9A441, transparent:true, opacity:0.55})));
+    scene.add(mesh);
+    return mesh;
+  });
 })();
 </script>
 </body>
