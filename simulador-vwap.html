@@ -154,42 +154,6 @@
 
   .side{display:flex;flex-direction:column;gap:16px}
 
-  /* ---- portão de login (obrigatório) ---- */
-  #authGate{
-    position:relative; min-height:100vh; display:flex; align-items:center; justify-content:center;
-    padding:32px 20px; overflow:hidden; background:#050608;
-    background-image:
-      radial-gradient(1100px 620px at 82% -10%, #14161c 0%, transparent 60%),
-      radial-gradient(900px 560px at -10% 108%, #101216 0%, transparent 55%);
-  }
-  #gateCanvas{position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none}
-  .gate-content{
-    position:relative; z-index:2; width:100%; max-width:360px;
-    animation:gateIn .7s cubic-bezier(.16,1,.3,1) both;
-  }
-  @keyframes gateIn{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)}}
-  .gate-brand{
-    display:flex; align-items:center; gap:8px; font-family:var(--font-ui); font-weight:700;
-    font-size:14px; color:var(--muted); margin-bottom:28px; letter-spacing:.2px;
-  }
-  .gate-brand .dot{width:7px;height:7px;border-radius:50%;background:var(--vwap);box-shadow:0 0 8px var(--vwap)}
-  .gate-content h1{font-size:26px;font-weight:700;margin-bottom:10px;letter-spacing:-.3px}
-  .gate-content p{font-size:13.5px;color:var(--muted);line-height:1.55;margin-bottom:26px}
-  #authMsg{font-size:12px;color:var(--faint);margin-top:14px;line-height:1.5;min-height:14px}
-  #authMsg.err{color:var(--baixa)}
-
-  .oauth-btn{
-    width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
-    background:#14161c; border:1px solid #262a33; color:#EDEFF4; font-family:var(--font-ui);
-    font-weight:600; font-size:14px; padding:12px 16px; border-radius:10px; cursor:pointer;
-    transition:background .15s, border-color .15s, transform .15s;
-  }
-  .oauth-btn:hover{background:#1A1D24; border-color:#33394A; transform:translateY(-1px)}
-  .oauth-divider{display:flex; align-items:center; gap:12px; margin:18px 0; color:var(--faint); font-size:12px}
-  .oauth-divider::before, .oauth-divider::after{content:''; flex:1; height:1px; background:#20232B}
-
-  #btnEntrar:disabled{opacity:.4; cursor:not-allowed; transform:none !important}
-
   /* ---- Acordeão mobile: cabeçalhos clicáveis que recolhem o corpo do card ---- */
   @media(max-width:860px){
     canvas{height:340px}
@@ -311,26 +275,7 @@
   </div>
 </header>
 
-<div id="authGate">
-  <canvas id="gateCanvas"></canvas>
-  <div class="gate-content">
-    <div class="gate-brand"><span class="dot"></span>TapeDrill</div>
-    <h1 id="authGateTitle">Entre pra treinar</h1>
-    <p id="authGateSub">Cada pessoa tem o próprio diário e progresso, salvos com segurança na nuvem.</p>
-
-    <button class="oauth-btn" id="btnGoogle" type="button">
-      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.56 2.7-3.86 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.9v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.66 9c0-.59.1-1.16.29-1.7V4.96H.9A9 9 0 0 0 0 9c0 1.45.35 2.83.9 4.04l3.05-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .9 4.96l3.05 2.34C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
-      Entrar com Google
-    </button>
-    <div class="oauth-divider"><span>ou</span></div>
-
-    <div class="frow full"><div><span class="flabel">Email</span><input type="email" id="authEmail" placeholder="voce@email.com"></div></div>
-    <div class="frow full"><div><span class="flabel">Senha</span><input type="password" id="authPass" placeholder="mínimo 6 caracteres"></div></div>
-    <button class="btn primary" id="btnEntrar" style="width:100%;margin-bottom:10px" disabled>Entrar</button>
-    <button class="btn ghost" id="btnCriarConta" style="width:100%">Criar conta</button>
-    <div id="authMsg"></div>
-  </div>
-</div>
+<div id="authRedirect" style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:13px">Verificando sua sessão…</div>
 
 <main id="appMain" style="display:none">
   <section class="card" id="chartCard">
@@ -1216,150 +1161,23 @@ $('#fileCsv').addEventListener('change',e=>{
 })();
 
 /* ============ nuvem (auth + sincronização) ============ */
-function setAuthMsg(msg,isErr){
-  const el=$('#authMsg'); if(!el)return;
-  el.textContent=msg||''; el.classList.toggle('err',!!isErr);
-}
+const LOGIN_URL = new URL('login/', window.location.href.replace(/simulador-vwap\.html.*$/,'')).href;
+
 function updateAuthUI(){
-  const gate=$('#authGate'), app=$('#appMain'), head=$('#appHeader');
+  const redirectMsg=$('#authRedirect'), app=$('#appMain'), head=$('#appHeader');
   if(currentUser){
-    gate.style.display='none'; app.style.display=''; head.style.display='';
+    if(redirectMsg) redirectMsg.style.display='none';
+    app.style.display=''; head.style.display='';
     $('#authUserEmail').textContent=currentUser.email;
-    if(window.__pauseGateScene) window.__pauseGateScene();
   } else {
-    gate.style.display='flex'; app.style.display='none'; head.style.display='none';
-    if(window.__resumeGateScene) window.__resumeGateScene();
+    window.location.href = LOGIN_URL;
   }
 }
-function withTimeout(promise, ms, msg){
-  return Promise.race([
-    promise,
-    new Promise((_,reject)=>setTimeout(()=>reject(new Error(msg||'Tempo esgotado')),ms))
-  ]);
+async function cloudSignOut(){
+  await sb.auth.signOut();
+  window.location.href = LOGIN_URL;
 }
-async function cloudSignUp(){
-  const email=$('#authEmail').value.trim(), pass=$('#authPass').value;
-  if(!email||pass.length<6) return setAuthMsg('Preencha email e uma senha com 6+ caracteres.',true);
-  setAuthMsg('Criando conta…');
-  try{
-    const {error}=await withTimeout(sb.auth.signUp({
-      email, password:pass,
-      options:{ emailRedirectTo: window.location.href.split('#')[0].split('?')[0] }
-    }), 12000, 'Conexão com o servidor demorou demais.');
-    if(error) return setAuthMsg(error.message,true);
-    setAuthMsg('Conta criada! Se pedir confirmação por email, confira sua caixa de entrada — senão, já pode entrar.');
-  }catch(err){
-    console.error('Falha de conexão no cadastro:',err);
-    setAuthMsg('Não consegui conectar ao servidor. Verifique sua internet ou tente desativar bloqueadores de anúncio/rastreamento pra este site. ('+(err.message||'')+')',true);
-  }
-}
-async function cloudSignIn(){
-  const email=$('#authEmail').value.trim(), pass=$('#authPass').value;
-  if(!email||!pass) return setAuthMsg('Preencha email e senha.',true);
-  setAuthMsg('Entrando…');
-  try{
-    const {error}=await withTimeout(sb.auth.signInWithPassword({email,password:pass}), 12000, 'Conexão com o servidor demorou demais.');
-    if(error) return setAuthMsg(error.message,true);
-    setAuthMsg('');
-  }catch(err){
-    console.error('Falha de conexão no login:',err);
-    setAuthMsg('Não consegui conectar ao servidor. Verifique sua internet ou tente desativar bloqueadores de anúncio/rastreamento pra este site. ('+(err.message||'')+')',true);
-  }
-}
-async function cloudSignOut(){ await sb.auth.signOut(); }
-$('#btnEntrar').addEventListener('click',cloudSignIn);
-$('#btnCriarConta').addEventListener('click',cloudSignUp);
 $('#btnSair').addEventListener('click',cloudSignOut);
-
-async function cloudSignInGoogle(){
-  setAuthMsg('Redirecionando pro Google…');
-  try{
-    const {error}=await sb.auth.signInWithOAuth({
-      provider:'google',
-      options:{ redirectTo: window.location.href.split('#')[0].split('?')[0] }
-    });
-    if(error) setAuthMsg(error.message,true);
-  }catch(err){
-    setAuthMsg('Não consegui conectar ao Google. ('+(err.message||'')+')',true);
-  }
-}
-$('#btnGoogle').addEventListener('click',cloudSignInGoogle);
-
-// habilita "Entrar" só quando email/senha parecem válidos
-function updGateBtn(){
-  const email=$('#authEmail').value.trim(), pass=$('#authPass').value;
-  $('#btnEntrar').disabled = !(email.includes('@') && email.includes('.') && pass.length>=1);
-}
-$('#authEmail').addEventListener('input',updGateBtn);
-$('#authPass').addEventListener('input',updGateBtn);
-$('#authPass').addEventListener('keydown',e=>{ if(e.key==='Enter' && !$('#btnEntrar').disabled) cloudSignIn(); });
-
-/* ============ cena 3D do portão de login ============ */
-(function(){
-  const canvas = document.getElementById('gateCanvas');
-  if(!canvas || typeof THREE==='undefined') return;
-
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
-  camera.position.z = 6.2;
-
-  const renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-
-  // forma facetada — icosaedro com arestas em destaque, material escuro fosco
-  const geo = new THREE.IcosahedronGeometry(2.1, 0);
-  const mat = new THREE.MeshStandardMaterial({
-    color:0x0d0f14, metalness:0.85, roughness:0.25, flatShading:true
-  });
-  const mesh = new THREE.Mesh(geo, mat);
-  scene.add(mesh);
-
-  const edges = new THREE.EdgesGeometry(geo);
-  const lineMat = new THREE.LineBasicMaterial({color:0xD9A441, transparent:true, opacity:0.35});
-  const wire = new THREE.LineSegments(edges, lineMat);
-  mesh.add(wire);
-
-  const key = new THREE.PointLight(0xD9A441, 18, 20);
-  key.position.set(4,3,5);
-  scene.add(key);
-  const fill = new THREE.PointLight(0x4DA3FF, 8, 20);
-  fill.position.set(-5,-2,3);
-  scene.add(fill);
-  scene.add(new THREE.AmbientLight(0x222222, 1.2));
-
-  let mx=0, my=0, tx=0, ty=0, running=true, raf=null;
-  function onMove(e){
-    const x = (e.touches ? e.touches[0].clientX : e.clientX)/window.innerWidth*2-1;
-    const y = (e.touches ? e.touches[0].clientY : e.clientY)/window.innerHeight*2-1;
-    tx = x*0.5; ty = y*0.35;
-  }
-  window.addEventListener('mousemove', onMove, {passive:true});
-  window.addEventListener('touchmove', onMove, {passive:true});
-
-  function resize(){
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  }
-  window.addEventListener('resize', resize);
-
-  let t=0;
-  function animate(){
-    if(!running) return;
-    raf = requestAnimationFrame(animate);
-    t += 0.0032;
-    mx += (tx-mx)*0.04; my += (ty-my)*0.04;
-    mesh.rotation.y = t*0.5 + mx*0.8;
-    mesh.rotation.x = t*0.22 + my*0.6;
-    renderer.render(scene, camera);
-  }
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(!reduceMotion) animate(); else { mesh.rotation.set(0.4,0.6,0); renderer.render(scene,camera); }
-
-  window.__pauseGateScene = ()=>{ running=false; if(raf) cancelAnimationFrame(raf); };
-  window.__resumeGateScene = ()=>{ if(!running && !reduceMotion){ running=true; animate(); } };
-})();
 
 function rowToTrade(row){
   return {
