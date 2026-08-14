@@ -194,14 +194,17 @@ function drawSvgFallback(){
     camera.position.set(0, 0.85, 7.2);
     camera.lookAt(0,0.1,0);
     const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
     renderer.setSize(W,H);
     wrap.appendChild(renderer.domElement);
 
     scene.add(new THREE.AmbientLight(0x1a1a1a,1.15));
-    const key = new THREE.PointLight(0xD9A441,26,28); key.position.set(4.5,3.5,5); scene.add(key);
-    const fill = new THREE.PointLight(0x4DA3FF,11,28); fill.position.set(-5.5,-1,4); scene.add(fill);
-    const rim = new THREE.PointLight(0xffffff,7,22); rim.position.set(0,4.5,-3.5); scene.add(rim);
+    const key = new THREE.PointLight(0xD9A441,3.4,28); key.position.set(4.5,3.5,5); scene.add(key);
+    const fill = new THREE.PointLight(0x4DA3FF,1.6,28); fill.position.set(-5.5,-1,4); scene.add(fill);
+    const rim = new THREE.PointLight(0xffffff,1.1,22); rim.position.set(0,4.5,-3.5); scene.add(rim);
 
     const group = new THREE.Group();
 
@@ -250,8 +253,9 @@ function drawSvgFallback(){
     kctx.fill();
     kctx.strokeStyle='#2a2e38'; kctx.lineWidth=1.5; kctx.stroke();
     const kbTexture = new THREE.CanvasTexture(kbCanvas);
+    kbTexture.encoding = THREE.sRGBEncoding;
 
-    const deck = new THREE.Mesh(new THREE.PlaneGeometry(3.42,2.28), new THREE.MeshStandardMaterial({map:kbTexture, metalness:0.3, roughness:0.6}));
+    const deck = new THREE.Mesh(new THREE.PlaneGeometry(3.42,2.28), new THREE.MeshStandardMaterial({map:kbTexture, metalness:0.1, roughness:0.7}));
     deck.rotation.x = -Math.PI/2;
     deck.position.set(0,-0.935,0.02);
     group.add(deck);
@@ -276,6 +280,7 @@ function drawSvgFallback(){
     ch2.width = 640; ch2.height = 400;
     const ctx = ch2.getContext('2d');
     const texture = new THREE.CanvasTexture(ch2);
+    texture.encoding = THREE.sRGBEncoding;
     const screenGlass = new THREE.Mesh(
       new THREE.PlaneGeometry(screenW-0.22, screenH-0.22),
       new THREE.MeshBasicMaterial({map:texture})
@@ -283,7 +288,7 @@ function drawSvgFallback(){
     screenGlass.position.set(0, screenH/2, 0.031);
     lidPivot.add(screenGlass);
     // leve brilho ambiente saindo da tela (glow)
-    const glow = new THREE.PointLight(0x6FB8FF, 3.5, 3.2);
+    const glow = new THREE.PointLight(0x6FB8FF, 0.9, 3.2);
     glow.position.set(0, screenH/2, 0.4);
     lidPivot.add(glow);
 
