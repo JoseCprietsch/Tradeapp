@@ -387,8 +387,10 @@ function drawSvgFallback(){
     let tx=0, ty=0, mx=0, my=0;
     window.addEventListener('mousemove', e=>{
       const r = wrap.getBoundingClientRect();
-      tx = ((e.clientX-r.left)/r.width - 0.5) * 0.32;
-      ty = ((e.clientY-r.top)/r.height - 0.5) * 0.14;
+      const nx = Math.max(0, Math.min(1, (e.clientX-r.left)/r.width));
+      const ny = Math.max(0, Math.min(1, (e.clientY-r.top)/r.height));
+      tx = (nx - 0.5) * 0.32;
+      ty = (ny - 0.5) * 0.14;
     }, {passive:true});
 
     function animate(t){
