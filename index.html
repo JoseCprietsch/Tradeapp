@@ -196,20 +196,20 @@ function drawSvgFallback(){
     const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 0.82;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
     renderer.setSize(W,H);
     wrap.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0x1a1a1a,1.15));
-    const key = new THREE.PointLight(0xD9A441,3.4,28); key.position.set(4.5,3.5,5); scene.add(key);
-    const fill = new THREE.PointLight(0x4DA3FF,1.6,28); fill.position.set(-5.5,-1,4); scene.add(fill);
+    scene.add(new THREE.AmbientLight(0x1a1a1a,0.55));
+    const key = new THREE.PointLight(0xD9A441,1.9,26); key.position.set(4.5,3.5,5); scene.add(key);
+    const fill = new THREE.PointLight(0x4DA3FF,0.95,26); fill.position.set(-5.5,-1,4); scene.add(fill);
     const rim = new THREE.PointLight(0xffffff,0.55,20); rim.position.set(1.5,3.0,-2.0); scene.add(rim);
 
     const group = new THREE.Group();
 
     // ---- materiais ----
-    const shellMat = new THREE.MeshStandardMaterial({color:0x18191f, metalness:0.06, roughness:0.58});
+    const shellMat = new THREE.MeshStandardMaterial({color:0x121318, metalness:0.06, roughness:0.58});
     const edgeMat  = new THREE.MeshStandardMaterial({color:0x2e323c, metalness:0.4, roughness:0.4});
     const deckMat  = new THREE.MeshStandardMaterial({color:0x0e0f13, metalness:0.55, roughness:0.5});
 
