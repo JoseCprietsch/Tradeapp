@@ -47,16 +47,13 @@
         <a href="metodo.html" class="btn ghost">Como funciona o método</a>
       </div>
     </div>
-    <div class="tape-wrap">
-      <div class="tape-label"><span>Ativo sintético · pregão de treino</span><b>rejeição → rompimento</b></div>
-      <svg id="heroTape" viewBox="0 0 480 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gráfico mostrando o preço sendo rejeitado no VWAP e depois rompendo com sustentação">
-        <!-- VWAP line -->
+    <div class="hero-laptop-wrap">
+      <div id="heroLaptop" class="hero-laptop"></div>
+      <svg id="heroTapeFallback" viewBox="0 0 480 220" xmlns="http://www.w3.org/2000/svg" style="display:none" role="img" aria-label="Gráfico mostrando o preço sendo rejeitado no VWAP e depois rompendo com sustentação">
         <line x1="0" y1="150" x2="480" y2="150" stroke="#D9A441" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.55"/>
         <text x="6" y="144" font-family="IBM Plex Mono" font-size="9" fill="#D9A441" opacity="0.8">VWAP</text>
         <g id="candleGroup"></g>
-        <g id="tapeCursor"></g>
       </svg>
-      <div class="tape-caption"><b>O que você está vendo:</b> preço testa o VWAP três vezes e é rejeitado — depois rompe e sustenta acima. É o padrão-base que o simulador treina em cada pregão gerado.</div>
     </div>
   </div>
 </header>
@@ -153,117 +150,151 @@
 </footer>
 
 <script>
-/* ============ gráfico do hero — desenha o padrão e depois continua ao vivo ============ */
-(function(){
+/* ============ visual principal do hero: notebook 3D com pregão ao vivo na tela ============ */
+/* Se WebGL/Three.js falhar por qualquer motivo, cai pro gráfico SVG estático como reserva. */
+function drawSvgFallback(){
+  document.getElementById('heroLaptop').style.display='none';
+  const fb = document.getElementById('heroTapeFallback');
+  fb.style.display='block';
   const svg = document.getElementById('candleGroup');
   const NS = 'http://www.w3.org/2000/svg';
-  const vwapY = 150;
-  const candleW = 6, gap = 3.4, per = candleW+gap;
-  const maxCandles = 52;
-  let x = 8;
-
-  const seedPath = [
-    ...[168,158,172,152,166,151,170,153].map(y=>y),
-    150,148,142,130,118,108,100,94,90,86,84,82
-  ];
-  let lastY = seedPath[seedPath.length-1];
-  const candles = []; // {g, wick, body}
-
-  function pushCandle(y, animate){
-    const open = lastY, close = y;
-    const isUp = close <= open;
-    const top = Math.min(open,close), bot = Math.max(open,close);
-    const wickTop = top - (2 + Math.random()*4);
-    const wickBot = bot + (2 + Math.random()*4);
-
-    const g = document.createElementNS(NS,'g');
-    g.setAttribute('opacity', animate ? '0' : '1');
-    g.style.transition = 'opacity .35s ease';
-
-    const wick = document.createElementNS(NS,'line');
-    wick.setAttribute('x1', x+candleW/2); wick.setAttribute('x2', x+candleW/2);
-    wick.setAttribute('y1', wickTop); wick.setAttribute('y2', wickBot);
-    wick.setAttribute('stroke', isUp ? '#2ECC8F' : '#F2495C');
-    wick.setAttribute('stroke-width','1');
+  const vwapY = 150, candleW = 6, gap = 3.4, per = candleW+gap;
+  let x = 8, lastY = 150;
+  const seedPath = [168,158,172,152,166,151,170,153,150,148,142,130,118,108,100,94,90,86,84,82];
+  seedPath.forEach(y=>{
+    const open=lastY, close=y, isUp=close<=open;
+    const top=Math.min(open,close), bot=Math.max(open,close);
+    const g=document.createElementNS(NS,'g');
+    const wick=document.createElementNS(NS,'line');
+    wick.setAttribute('x1',x+candleW/2); wick.setAttribute('x2',x+candleW/2);
+    wick.setAttribute('y1',top-4); wick.setAttribute('y2',bot+4);
+    wick.setAttribute('stroke', isUp?'#2ECC8F':'#F2495C'); wick.setAttribute('stroke-width','1');
     g.appendChild(wick);
-
-    const body = document.createElementNS(NS,'rect');
-    body.setAttribute('x', x); body.setAttribute('width', candleW);
-    body.setAttribute('y', top); body.setAttribute('height', Math.max(1.5, bot-top));
-    body.setAttribute('fill', isUp ? '#2ECC8F' : '#F2495C');
-    body.setAttribute('rx','1');
+    const body=document.createElementNS(NS,'rect');
+    body.setAttribute('x',x); body.setAttribute('width',candleW);
+    body.setAttribute('y',top); body.setAttribute('height',Math.max(1.5,bot-top));
+    body.setAttribute('fill', isUp?'#2ECC8F':'#F2495C'); body.setAttribute('rx','1');
     g.appendChild(body);
-
     svg.appendChild(g);
-    candles.push({g,x});
-    x += per;
-    lastY = y;
-    return g;
-  }
-
-  const seedGroups = seedPath.map((y,i)=> i===0 ? pushCandle(y,false) : pushCandle(y,true) );
-
-  function shiftLeft(){
-    x -= per;
-    candles.forEach(c=>{
-      c.x -= per;
-      c.g.querySelectorAll('line,rect').forEach(el=>{
-        if(el.tagName==='line'){ el.setAttribute('x1', +el.getAttribute('x1')-per); el.setAttribute('x2', +el.getAttribute('x2')-per); }
-        else { el.setAttribute('x', +el.getAttribute('x')-per); }
-      });
-    });
-    const first = candles[0];
-    if(first && first.x < -candleW){
-      first.g.remove();
-      candles.shift();
-    }
-  }
-
-  // caminhada aleatória suave, com leve "ímã" de volta ao vwap — mantém o gráfico legível
-  function nextY(){
-    const pull = (vwapY - lastY) * 0.02;
-    const step = (Math.random()-0.5) * 14 + pull;
-    let y = lastY + step;
-    y = Math.max(60, Math.min(196, y));
-    return y;
-  }
-
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let i = 1;
-  function revealSeed(){
-    if(i < seedGroups.length){
-      seedGroups[i].setAttribute('opacity','1');
-      i++;
-      setTimeout(revealSeed, 55);
-    } else {
-      if(!reduceMotion) setTimeout(startLive, 900);
-    }
-  }
-  function startLive(){
-    setInterval(()=>{
-      if(candles.length >= maxCandles) shiftLeft();
-      pushCandle(nextY(), true);
-    }, 1400);
-  }
-  if(reduceMotion){ seedGroups.forEach(g=>g.setAttribute('opacity','1')); }
-  else setTimeout(revealSeed, 300);
-})();
-
-/* ============ inclinação 3D no card do hero, seguindo o mouse ============ */
-(function(){
-  const card = document.querySelector('.tape-wrap');
-  if(!card || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  let raf=null;
-  card.addEventListener('mousemove', e=>{
-    const r = card.getBoundingClientRect();
-    const px = (e.clientX - r.left)/r.width - 0.5;
-    const py = (e.clientY - r.top)/r.height - 0.5;
-    cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(()=>{
-      card.style.transform = `perspective(900px) rotateY(${px*6}deg) rotateX(${-py*6}deg) translateZ(0)`;
-    });
+    x+=per; lastY=y;
   });
-  card.addEventListener('mouseleave', ()=>{ card.style.transform = 'perspective(900px) rotateY(0) rotateX(0)'; });
+}
+
+(function(){
+  const wrap = document.getElementById('heroLaptop');
+  if(!wrap || typeof THREE==='undefined'){ drawSvgFallback(); return; }
+
+  try{
+    const W = wrap.clientWidth||480, H = wrap.clientHeight||440;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(30, W/H, 0.1, 100);
+    camera.position.set(0, 0.55, 6.4);
+    const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    renderer.setSize(W,H);
+    wrap.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0x1a1a1a,1.2));
+    const key = new THREE.PointLight(0xD9A441,24,26); key.position.set(4,3,5); scene.add(key);
+    const fill = new THREE.PointLight(0x4DA3FF,10,26); fill.position.set(-5,-1,4); scene.add(fill);
+    const rim = new THREE.PointLight(0xffffff,6,20); rim.position.set(0,4,-3); scene.add(rim);
+
+    const group = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({color:0x0d0e12, metalness:0.8, roughness:0.32});
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(3.7,0.14,2.55), bodyMat);
+    base.position.y = -1.05;
+    group.add(base);
+
+    const kbDeck = new THREE.Mesh(new THREE.BoxGeometry(3.5,0.03,2.35), new THREE.MeshStandardMaterial({color:0x16181f, metalness:0.6, roughness:0.5}));
+    kbDeck.position.set(0,-0.97,0.03);
+    group.add(kbDeck);
+
+    const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(3.7,2.34,0.1), bodyMat);
+    screenFrame.position.set(0, 0.08, -1.16);
+    screenFrame.rotation.x = -0.12;
+    group.add(screenFrame);
+
+    // canvas 2D com o pregão ao vivo, usado como textura da tela
+    const ch = document.createElement('canvas');
+    ch.width = 640; ch.height = 400;
+    const ctx = ch.getContext('2d');
+    const texture = new THREE.CanvasTexture(ch);
+    texture.colorSpace = THREE.SRGBColorSpace || texture.colorSpace;
+    const screen = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.42,2.06),
+      new THREE.MeshBasicMaterial({map:texture})
+    );
+    screen.position.set(0, 0.095, -1.108);
+    screen.rotation.x = -0.12;
+    group.add(screen);
+
+    scene.add(group);
+
+    // ---- desenha o pregão sintético continuamente no canvas 2D ----
+    const vwapY = 220, candleW = 10, gap = 5, per = candleW+gap;
+    let candles = [], lastY = 220, xCursor = 0;
+    function nextY(){
+      const pull = (vwapY-lastY)*0.02;
+      return Math.max(55, Math.min(365, lastY + (Math.random()-0.5)*24 + pull));
+    }
+    function drawChart(){
+      ctx.fillStyle = '#0A0C10'; ctx.fillRect(0,0,ch.width,ch.height);
+      ctx.strokeStyle = 'rgba(217,164,65,.5)'; ctx.setLineDash([7,6]); ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(0,vwapY); ctx.lineTo(ch.width,vwapY); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(217,164,65,.85)'; ctx.font='600 15px monospace'; ctx.fillText('VWAP', 12, vwapY-10);
+      candles.forEach(c=>{
+        ctx.strokeStyle = c.up ? '#2ECC8F' : '#F2495C'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(c.x+candleW/2, c.wt); ctx.lineTo(c.x+candleW/2, c.wb); ctx.stroke();
+        ctx.fillStyle = c.up ? '#2ECC8F' : '#F2495C';
+        ctx.fillRect(c.x, c.top, candleW, Math.max(3,c.h));
+      });
+      texture.needsUpdate = true;
+    }
+    function pushCandle(){
+      const open=lastY, close=nextY(), up=close<=open;
+      const top=Math.min(open,close), bot=Math.max(open,close);
+      candles.push({x:xCursor, top, h:bot-top, wt:top-16, wb:bot+16, up});
+      xCursor += per; lastY = close;
+      if(xCursor > ch.width){ candles.forEach(c=>c.x-=per); xCursor-=per; }
+      candles = candles.filter(c=>c.x > -per);
+    }
+    for(let i=0;i<38;i++) pushCandle();
+    drawChart();
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(!reduceMotion) setInterval(()=>{ pushCandle(); drawChart(); }, 600);
+
+    // parallax com o mouse
+    let tx=0, ty=0, mx=0, my=0;
+    window.addEventListener('mousemove', e=>{
+      const r = wrap.getBoundingClientRect();
+      tx = ((e.clientX-r.left)/r.width - 0.5) * 0.55;
+      ty = ((e.clientY-r.top)/r.height - 0.5) * 0.3;
+    }, {passive:true});
+
+    function animate(t){
+      requestAnimationFrame(animate);
+      if(!reduceMotion){
+        mx += (tx-mx)*0.05; my += (ty-my)*0.05;
+        group.rotation.y = 0.32 + mx;
+        group.rotation.x = 0.04 + my*0.4 + Math.sin(t*0.00035)*0.015;
+      } else {
+        group.rotation.y = 0.32; group.rotation.x = 0.04;
+      }
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(animate);
+
+    window.addEventListener('resize', ()=>{
+      const w = wrap.clientWidth, h = wrap.clientHeight;
+      camera.aspect = w/h; camera.updateProjectionMatrix();
+      renderer.setSize(w,h);
+    });
+  }catch(err){
+    console.error('Falha ao renderizar o notebook 3D, usando gráfico de reserva:', err);
+    const old = wrap.querySelector('canvas'); if(old) old.remove();
+    drawSvgFallback();
+  }
 })();
 
 /* ============ ticker ao vivo ============ */
@@ -333,28 +364,28 @@
 
   function makeIconScene(canvas, build){
     if(!canvas) return;
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
-    camera.position.set(0,0,5.2);
-    const renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true});
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-    renderer.setSize(96,96,false);
+    try{
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
+      camera.position.set(0,0,5.2);
+      const renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true});
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+      renderer.setSize(96,96,false);
 
-    const key = new THREE.PointLight(0xD9A441,16,20); key.position.set(3,2,4); scene.add(key);
-    const fill = new THREE.PointLight(0x4DA3FF,6,20); fill.position.set(-3,-2,3); scene.add(fill);
-    scene.add(new THREE.AmbientLight(0x1a1a1a,1.1));
+      const key = new THREE.PointLight(0xD9A441,16,20); key.position.set(3,2,4); scene.add(key);
+      const fill = new THREE.PointLight(0x4DA3FF,6,20); fill.position.set(-3,-2,3); scene.add(fill);
+      scene.add(new THREE.AmbientLight(0x1a1a1a,1.1));
 
-    const obj = build(scene, THREE);
+      const obj = build(scene, THREE);
+      if(obj) obj.rotation.x = 0.45; // inclinação fixa, nunca sobrescrita depois
 
-    function frame(t){
-      if(!reduceMotion && obj){
-        obj.rotation.y = t*0.00055;
-        obj.rotation.x = Math.sin(t*0.00035)*0.28;
+      function frame(){
+        if(!reduceMotion && obj) obj.rotation.y += 0.012;
+        renderer.render(scene, camera);
+        requestAnimationFrame(frame);
       }
-      renderer.render(scene, camera);
       requestAnimationFrame(frame);
-    }
-    requestAnimationFrame(frame);
+    }catch(err){ console.error('Falha ao renderizar selo 3D:', err); }
   }
 
   // ciclo: anel com uma esfera orbitando — representa a repetição dos 4 passos
@@ -371,7 +402,6 @@
     );
     orb.position.set(1.12,0,0);
     group.add(orb);
-    group.rotation.x = 0.5;
     scene.add(group);
     return group;
   });
