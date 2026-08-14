@@ -191,7 +191,7 @@ function drawSvgFallback(){
     const W = wrap.clientWidth||480, H = wrap.clientHeight||440;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(28, W/H, 0.1, 100);
-    camera.position.set(0, 1.05, 7.0);
+    camera.position.set(0, 1.0, 8.2);
     camera.lookAt(0,-0.05,0);
     const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
     renderer.outputEncoding = THREE.sRGBEncoding;
@@ -201,9 +201,9 @@ function drawSvgFallback(){
     renderer.setSize(W,H);
     wrap.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0x1a1a1a,0.55));
-    const key = new THREE.PointLight(0xD9A441,1.9,26); key.position.set(4.5,3.5,5); scene.add(key);
-    const fill = new THREE.PointLight(0x4DA3FF,0.95,26); fill.position.set(-5.5,-1,4); scene.add(fill);
+    scene.add(new THREE.AmbientLight(0x1a1a1a,0.95));
+    const key = new THREE.PointLight(0xD9A441,1.1,26); key.position.set(4.5,3.5,5); scene.add(key);
+    const fill = new THREE.PointLight(0x4DA3FF,0.6,26); fill.position.set(-5.5,-1,4); scene.add(fill);
     const rim = new THREE.PointLight(0xffffff,0.55,20); rim.position.set(1.5,3.0,-2.0); scene.add(rim);
 
     const group = new THREE.Group();
@@ -387,8 +387,8 @@ function drawSvgFallback(){
     let tx=0, ty=0, mx=0, my=0;
     window.addEventListener('mousemove', e=>{
       const r = wrap.getBoundingClientRect();
-      tx = ((e.clientX-r.left)/r.width - 0.5) * 0.5;
-      ty = ((e.clientY-r.top)/r.height - 0.5) * 0.22;
+      tx = ((e.clientX-r.left)/r.width - 0.5) * 0.32;
+      ty = ((e.clientY-r.top)/r.height - 0.5) * 0.14;
     }, {passive:true});
 
     function animate(t){
