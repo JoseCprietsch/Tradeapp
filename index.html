@@ -191,7 +191,7 @@ function drawSvgFallback(){
     const W = wrap.clientWidth||480, H = wrap.clientHeight||440;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(28, W/H, 0.1, 100);
-    camera.position.set(0, 1.0, 8.2);
+    camera.position.set(0, 1.05, 10.4);
     camera.lookAt(0,-0.05,0);
     const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
     renderer.outputEncoding = THREE.sRGBEncoding;
