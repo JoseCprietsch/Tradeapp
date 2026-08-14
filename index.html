@@ -209,12 +209,12 @@ function drawSvgFallback(){
     const group = new THREE.Group();
 
     // ---- materiais ----
-    const shellMat = new THREE.MeshStandardMaterial({color:0x14161c, metalness:0.7, roughness:0.36});
-    const edgeMat  = new THREE.MeshStandardMaterial({color:0x2a2e38, metalness:0.85, roughness:0.2});
+    const shellMat = new THREE.MeshStandardMaterial({color:0x18191f, metalness:0.06, roughness:0.58});
+    const edgeMat  = new THREE.MeshStandardMaterial({color:0x2e323c, metalness:0.4, roughness:0.4});
     const deckMat  = new THREE.MeshStandardMaterial({color:0x0e0f13, metalness:0.55, roughness:0.5});
 
     // ---- base (chassi inferior) ----
-    const baseW=3.7, baseD=2.5, baseH=0.11;
+    const baseW=3.7, baseD=2.5, baseH=0.075;
     const base = new THREE.Mesh(new THREE.BoxGeometry(baseW,baseH,baseD), shellMat);
     base.position.y = -1.02;
     group.add(base);
@@ -223,46 +223,70 @@ function drawSvgFallback(){
     frontEdge.position.set(0,-1.02-baseH/2-0.005, baseD/2);
     group.add(frontEdge);
 
-    // ---- teclado: textura desenhada proceduralmente, com efeito de retroiluminação ----
+    // ---- teclado: layout QWERTY real (linha por linha), com letras e retroiluminação ----
     const kbCanvas = document.createElement('canvas');
     kbCanvas.width=512; kbCanvas.height=340;
     const kctx = kbCanvas.getContext('2d');
     kctx.fillStyle='#050609'; kctx.fillRect(0,0,512,340);
-    const cols=14, rows=5, padX=14, padY=14, gap=6;
-    const cw=(512-padX*2-gap*(cols-1))/cols, ch=(240-padY*2-gap*(rows-1))/rows;
 
     function keyRect(x,y,w,h){
       kctx.beginPath();
-      kctx.roundRect ? kctx.roundRect(x,y,w,h,4) : kctx.rect(x,y,w,h);
+      kctx.roundRect ? kctx.roundRect(x,y,w,h,3.2) : kctx.rect(x,y,w,h);
     }
+
+    // cada linha: lista de {l: rótulo, w: largura relativa}. w=1 é uma tecla normal.
+    const layout = [
+      [{l:'Esc'},{l:'F1'},{l:'F2'},{l:'F3'},{l:'F4'},{l:'F5'},{l:'F6'},{l:'F7'},{l:'F8'},{l:'F9'},{l:'F10'},{l:'F11'},{l:'F12'}],
+      [{l:'`'},{l:'1'},{l:'2'},{l:'3'},{l:'4'},{l:'5'},{l:'6'},{l:'7'},{l:'8'},{l:'9'},{l:'0'},{l:'-'},{l:'='},{l:'⌫',w:1.7}],
+      [{l:'Tab',w:1.5},{l:'Q'},{l:'W'},{l:'E'},{l:'R'},{l:'T'},{l:'Y'},{l:'U'},{l:'I'},{l:'O'},{l:'P'},{l:'['},{l:']'}],
+      [{l:'Caps',w:1.8},{l:'A'},{l:'S'},{l:'D'},{l:'F'},{l:'G'},{l:'H'},{l:'J'},{l:'K'},{l:'L'},{l:';'},{l:"Enter",w:2.1}],
+      [{l:'Shift',w:2.3},{l:'Z'},{l:'X'},{l:'C'},{l:'V'},{l:'B'},{l:'N'},{l:'M'},{l:','},{l:'.'},{l:'Shift',w:2.3}],
+      [{l:'Ctrl',w:1.3},{l:'Fn',w:1.1},{l:'❖',w:1.1},{l:'Alt',w:1.1},{l:'',w:6},{l:'Alt',w:1.1},{l:'Ctrl',w:1.3}]
+    ];
+
+    const padX=13, padY=12, gapX=4, gapY=5, usableW=512-padX*2;
+    const rowH = (250-padY-gapY*(layout.length-1))/layout.length;
     const keyBoxes = [];
-    for(let r=0;r<rows;r++){
-      for(let c=0;c<cols;c++){
-        keyBoxes.push([padX+c*(cw+gap), padY+r*(ch+gap), cw, ch]);
-      }
-    }
-    const spY = padY+rows*(ch+gap), spX = padX+cw*3, spW = cw*6+gap*5;
-    keyBoxes.push([spX,spY,spW,ch]); // barra de espaço
+    layout.forEach((row,ri)=>{
+      const unit = (usableW - gapX*(row.length-1)) / row.reduce((s,k)=>s+(k.w||1),0);
+      let x = padX;
+      const y = padY + ri*(rowH+gapY);
+      row.forEach(k=>{
+        const w = (k.w||1)*unit;
+        keyBoxes.push({x, y, w, h:rowH, l:k.l, small: !!k.w && k.w<=1.3 && k.l.length<=2});
+        x += w + gapX;
+      });
+    });
 
     // halo retroiluminado (dourado da marca, desfocado atrás de cada tecla)
     kctx.save();
     kctx.filter = 'blur(5px)';
-    kctx.fillStyle = 'rgba(217,164,65,0.85)';
-    keyBoxes.forEach(([x,y,w,h])=>{ keyRect(x,y,w,h); kctx.fill(); });
+    kctx.fillStyle = 'rgba(217,164,65,0.8)';
+    keyBoxes.forEach(k=>{ if(k.l!==''){ keyRect(k.x,k.y,k.w,k.h); kctx.fill(); } });
     kctx.restore();
 
     // corpo da tecla, mais escuro por cima do halo (só a "luz vazando nas bordas" fica visível)
-    kctx.fillStyle = '#14161c';
-    keyBoxes.forEach(([x,y,w,h])=>{ keyRect(x+1.5,y+1.5,w-3,h-3); kctx.fill(); });
+    kctx.fillStyle = '#151319';
+    keyBoxes.forEach(k=>{ if(k.l!==''){ keyRect(k.x+1.4,k.y+1.4,k.w-2.8,k.h-2.8); kctx.fill(); } });
 
     // brilho fino no topo de cada tecla (bevel)
-    kctx.strokeStyle='rgba(255,255,255,0.10)'; kctx.lineWidth=1;
-    keyBoxes.forEach(([x,y,w,h])=>{ keyRect(x+1.5,y+1.5,w-3,h-3); kctx.stroke(); });
+    kctx.strokeStyle='rgba(255,255,255,0.09)'; kctx.lineWidth=1;
+    keyBoxes.forEach(k=>{ if(k.l!==''){ keyRect(k.x+1.4,k.y+1.4,k.w-2.8,k.h-2.8); kctx.stroke(); } });
+
+    // rótulo de cada tecla
+    kctx.textAlign='center'; kctx.textBaseline='middle';
+    keyBoxes.forEach(k=>{
+      if(!k.l) return;
+      const big = k.l.length===1;
+      kctx.font = (big ? '600 15px' : '600 9.5px') + ' Sora, Arial, sans-serif';
+      kctx.fillStyle = 'rgba(230,224,214,0.92)';
+      kctx.fillText(k.l, k.x+k.w/2, k.y+k.h/2+1);
+    });
 
     // trackpad
     kctx.fillStyle='#101216';
-    keyRect(512/2-95, 292, 190, 40); kctx.fill();
-    kctx.strokeStyle='rgba(217,164,65,0.35)'; kctx.lineWidth=1.2; kctx.stroke();
+    keyRect(512/2-95, 260, 190, 44); kctx.fill();
+    kctx.strokeStyle='rgba(217,164,65,0.32)'; kctx.lineWidth=1.2; kctx.stroke();
 
     const kbTexture = new THREE.CanvasTexture(kbCanvas);
     kbTexture.encoding = THREE.sRGBEncoding;
@@ -270,12 +294,12 @@ function drawSvgFallback(){
     const deck = new THREE.Mesh(
       new THREE.PlaneGeometry(3.42,2.28),
       new THREE.MeshStandardMaterial({
-        map:kbTexture, emissiveMap:kbTexture, emissive:0xD9A441, emissiveIntensity:0.35,
-        metalness:0.1, roughness:0.75
+        map:kbTexture, emissiveMap:kbTexture, emissive:0xD9A441, emissiveIntensity:0.28,
+        metalness:0.04, roughness:0.6
       })
     );
     deck.rotation.x = -Math.PI/2;
-    deck.position.set(0,-0.935,0.02);
+    deck.position.set(0,-0.965,0.02);
     group.add(deck);
 
     // ---- tela: moldura fina + vidro com o gráfico ao vivo ----
@@ -285,7 +309,7 @@ function drawSvgFallback(){
     lidPivot.rotation.x = hingeAngle;
     group.add(lidPivot);
 
-    const bezel = new THREE.Mesh(new THREE.BoxGeometry(screenW,screenH,0.055), shellMat);
+    const bezel = new THREE.Mesh(new THREE.BoxGeometry(screenW,screenH,0.038), shellMat);
     bezel.position.set(0, screenH/2, -0.02);
     lidPivot.add(bezel);
     // moldura fina visível (borda mais clara)
