@@ -482,13 +482,13 @@ function drawSvgFallback(){
   track.innerHTML = renderOnce() + '<span class="sep">•</span>' + renderOnce();
 })();
 
-/* ============ revelação ao rolar a página ============ */
+/* ============ revelação ao rolar a página (bidirecional) ============ */
 (function(){
   const els = document.querySelectorAll('[data-reveal], [data-reveal-stagger]');
   if(!('IntersectionObserver' in window) || !els.length){ els.forEach(e=>e.classList.add('in')); return; }
   const io = new IntersectionObserver((entries)=>{
     entries.forEach(entry=>{
-      if(entry.isIntersecting){ entry.target.classList.add('in'); io.unobserve(entry.target); }
+      entry.target.classList.toggle('in', entry.isIntersecting);
     });
   }, {threshold:0.15, rootMargin:'0px 0px -60px 0px'});
   els.forEach(el=>io.observe(el));
