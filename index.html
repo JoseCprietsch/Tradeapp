@@ -17,7 +17,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;1,500&family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 </head>
 <body>
 
@@ -151,19 +150,14 @@
 </footer>
 
 <script>
-/* ============ visual principal do hero: notebook 3D com pregão ao vivo na tela ============ */
-/* Ordem de tentativa: 1) modelo FBX real  2) notebook procedural (caixas)  3) gráfico SVG estático.
-   Cada etapa só entra em ação se a anterior falhar — nunca fica com a tela em branco. */
-
-// ---- ajustes de calibração do modelo FBX (mexer aqui depois de ver o resultado ao vivo) ----
-const FBX_ROTATION = {x:0, y:0, z:0};   // orientação inicial do modelo — FBX às vezes vem deitado
-const FBX_TARGET_SIZE = 4.2;             // maior dimensão do modelo, em unidades de cena, após escalar
-const SCREEN_OVERLAY = {                 // posição estimada da tela pro nosso gráfico ao vivo (chute inicial)
-  x:0, y:0.75, z:-0.05, w:2.9, h:1.85, rotX:-0.14, rotY:0
-};
+/* ============ visual principal do hero: notebook 3D procedural com pregão ao vivo na tela ============ */
+/* Construído com formas geométricas (não é um arquivo externo) — isso garante que a tela do
+   notebook e o gráfico ao vivo ficam sempre alinhados, sem depender de calibrar um modelo pronto.
+   Se WebGL/Three.js falhar por qualquer motivo, cai pro gráfico SVG estático como reserva. */
 
 function drawSvgFallback(){
-  document.getElementById('heroLaptop').style.display='none';
+  const laptopEl = document.getElementById('heroLaptop');
+  if(laptopEl) laptopEl.style.display='none';
   const fb = document.getElementById('heroTapeFallback');
   fb.style.display='block';
   const svg = document.getElementById('candleGroup');
@@ -193,237 +187,186 @@ function drawSvgFallback(){
   const wrap = document.getElementById('heroLaptop');
   if(!wrap || typeof THREE==='undefined'){ drawSvgFallback(); return; }
 
-  const W = wrap.clientWidth||480, H = wrap.clientHeight||440;
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(30, W/H, 0.1, 100);
-  camera.position.set(0, 0.55, 6.4);
-  const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-  renderer.setSize(W,H);
-  wrap.appendChild(renderer.domElement);
+  try{
+    const W = wrap.clientWidth||480, H = wrap.clientHeight||440;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(28, W/H, 0.1, 100);
+    camera.position.set(0, 0.85, 7.2);
+    camera.lookAt(0,0.1,0);
+    const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    renderer.setSize(W,H);
+    wrap.appendChild(renderer.domElement);
 
-  scene.add(new THREE.AmbientLight(0x1a1a1a,1.2));
-  const key = new THREE.PointLight(0xD9A441,24,26); key.position.set(4,3,5); scene.add(key);
-  const fill = new THREE.PointLight(0x4DA3FF,10,26); fill.position.set(-5,-1,4); scene.add(fill);
-  const rim = new THREE.PointLight(0xffffff,6,20); rim.position.set(0,4,-3); scene.add(rim);
+    scene.add(new THREE.AmbientLight(0x1a1a1a,1.15));
+    const key = new THREE.PointLight(0xD9A441,26,28); key.position.set(4.5,3.5,5); scene.add(key);
+    const fill = new THREE.PointLight(0x4DA3FF,11,28); fill.position.set(-5.5,-1,4); scene.add(fill);
+    const rim = new THREE.PointLight(0xffffff,7,22); rim.position.set(0,4.5,-3.5); scene.add(rim);
 
-  // ---- canvas 2D com o pregão ao vivo, usado como textura da tela (compartilhado por qualquer modelo) ----
-  const ch = document.createElement('canvas');
-  ch.width = 640; ch.height = 400;
-  const ctx = ch.getContext('2d');
-  const chartTexture = new THREE.CanvasTexture(ch);
-  const vwapY = 220, candleW = 10, gap = 5, per = candleW+gap;
-  let candles = [], lastY = 220, xCursor = 0;
-  function nextY(){
-    const pull = (vwapY-lastY)*0.02;
-    return Math.max(55, Math.min(365, lastY + (Math.random()-0.5)*24 + pull));
-  }
-  function drawChart(){
-    ctx.fillStyle = '#0A0C10'; ctx.fillRect(0,0,ch.width,ch.height);
-    ctx.strokeStyle = 'rgba(217,164,65,.5)'; ctx.setLineDash([7,6]); ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.moveTo(0,vwapY); ctx.lineTo(ch.width,vwapY); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle='rgba(217,164,65,.85)'; ctx.font='600 15px monospace'; ctx.fillText('VWAP', 12, vwapY-10);
-    candles.forEach(c=>{
-      ctx.strokeStyle = c.up ? '#2ECC8F' : '#F2495C'; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.moveTo(c.x+candleW/2, c.wt); ctx.lineTo(c.x+candleW/2, c.wb); ctx.stroke();
-      ctx.fillStyle = c.up ? '#2ECC8F' : '#F2495C';
-      ctx.fillRect(c.x, c.top, candleW, Math.max(3,c.h));
-    });
-    chartTexture.needsUpdate = true;
-  }
-  function pushCandle(){
-    const open=lastY, close=nextY(), up=close<=open;
-    const top=Math.min(open,close), bot=Math.max(open,close);
-    candles.push({x:xCursor, top, h:bot-top, wt:top-16, wb:bot+16, up});
-    xCursor += per; lastY = close;
-    if(xCursor > ch.width){ candles.forEach(c=>c.x-=per); xCursor-=per; }
-    candles = candles.filter(c=>c.x > -per);
-  }
-  for(let i=0;i<38;i++) pushCandle();
-  drawChart();
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(!reduceMotion) setInterval(()=>{ pushCandle(); drawChart(); }, 600);
+    const group = new THREE.Group();
 
-  // ---- parallax com o mouse (compartilhado) ----
-  let tx=0, ty=0, mx=0, my=0;
-  window.addEventListener('mousemove', e=>{
-    const r = wrap.getBoundingClientRect();
-    tx = ((e.clientX-r.left)/r.width - 0.5) * 0.55;
-    ty = ((e.clientY-r.top)/r.height - 0.5) * 0.3;
-  }, {passive:true});
+    // ---- materiais ----
+    const shellMat = new THREE.MeshStandardMaterial({color:0x14161c, metalness:0.78, roughness:0.26});
+    const edgeMat  = new THREE.MeshStandardMaterial({color:0x2a2e38, metalness:0.85, roughness:0.2});
+    const deckMat  = new THREE.MeshStandardMaterial({color:0x0e0f13, metalness:0.55, roughness:0.5});
 
-  function startAnimating(group, baseY, baseX){
+    // ---- base (chassi inferior) ----
+    const baseW=3.7, baseD=2.5, baseH=0.16;
+    const base = new THREE.Mesh(new THREE.BoxGeometry(baseW,baseH,baseD), shellMat);
+    base.position.y = -1.02;
+    group.add(base);
+    // aresta dourada sutil na borda frontal, como um chanfro
+    const frontEdge = new THREE.Mesh(new THREE.BoxGeometry(baseW,0.02,0.03), edgeMat);
+    frontEdge.position.set(0,-1.02-baseH/2-0.005, baseD/2);
+    group.add(frontEdge);
+
+    // ---- teclado: textura desenhada proceduralmente (grade de teclas) ----
+    const kbCanvas = document.createElement('canvas');
+    kbCanvas.width=512; kbCanvas.height=340;
+    const kctx = kbCanvas.getContext('2d');
+    kctx.fillStyle='#0b0c10'; kctx.fillRect(0,0,512,340);
+    const cols=14, rows=5, padX=14, padY=14, gap=5;
+    const cw=(512-padX*2-gap*(cols-1))/cols, ch=(240-padY*2-gap*(rows-1))/rows;
+    kctx.fillStyle='#1c1f28';
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const x=padX+c*(cw+gap), y=padY+r*(ch+gap);
+        kctx.beginPath();
+        kctx.roundRect ? kctx.roundRect(x,y,cw,ch,3) : kctx.rect(x,y,cw,ch);
+        kctx.fill();
+      }
+    }
+    // barra de espaço
+    kctx.fillStyle='#1c1f28';
+    const spY = padY+rows*(ch+gap);
+    kctx.beginPath();
+    const spX = padX+cw*3, spW = cw*6+gap*5;
+    kctx.roundRect ? kctx.roundRect(spX,spY,spW,ch,3) : kctx.rect(spX,spY,spW,ch);
+    kctx.fill();
+    // trackpad
+    kctx.fillStyle='#111319';
+    kctx.beginPath();
+    kctx.roundRect ? kctx.roundRect(512/2-90, 292, 180, 40, 6) : kctx.rect(512/2-90,292,180,40);
+    kctx.fill();
+    kctx.strokeStyle='#2a2e38'; kctx.lineWidth=1.5; kctx.stroke();
+    const kbTexture = new THREE.CanvasTexture(kbCanvas);
+
+    const deck = new THREE.Mesh(new THREE.PlaneGeometry(3.42,2.28), new THREE.MeshStandardMaterial({map:kbTexture, metalness:0.3, roughness:0.6}));
+    deck.rotation.x = -Math.PI/2;
+    deck.position.set(0,-0.935,0.02);
+    group.add(deck);
+
+    // ---- tela: moldura fina + vidro com o gráfico ao vivo ----
+    const screenW=3.62, screenH=2.32, hingeAngle=-0.16; // ~99° de abertura
+    const lidPivot = new THREE.Group();
+    lidPivot.position.set(0,-0.94,-1.22);
+    lidPivot.rotation.x = hingeAngle;
+    group.add(lidPivot);
+
+    const bezel = new THREE.Mesh(new THREE.BoxGeometry(screenW,screenH,0.09), shellMat);
+    bezel.position.set(0, screenH/2, -0.02);
+    lidPivot.add(bezel);
+    // moldura fina visível (borda mais clara)
+    const bezelEdge = new THREE.Mesh(new THREE.BoxGeometry(screenW+0.02,screenH+0.02,0.02), edgeMat);
+    bezelEdge.position.set(0, screenH/2, -0.06);
+    lidPivot.add(bezelEdge);
+
+    // canvas 2D com o pregão ao vivo, usado como textura da tela
+    const ch2 = document.createElement('canvas');
+    ch2.width = 640; ch2.height = 400;
+    const ctx = ch2.getContext('2d');
+    const texture = new THREE.CanvasTexture(ch2);
+    const screenGlass = new THREE.Mesh(
+      new THREE.PlaneGeometry(screenW-0.22, screenH-0.22),
+      new THREE.MeshBasicMaterial({map:texture})
+    );
+    screenGlass.position.set(0, screenH/2, 0.031);
+    lidPivot.add(screenGlass);
+    // leve brilho ambiente saindo da tela (glow)
+    const glow = new THREE.PointLight(0x6FB8FF, 3.5, 3.2);
+    glow.position.set(0, screenH/2, 0.4);
+    lidPivot.add(glow);
+
+    scene.add(group);
+
+    // ---- sombra de contato no "chão" ----
+    const shadowTex = (function(){
+      const c=document.createElement('canvas'); c.width=256; c.height=256;
+      const g=c.getContext('2d');
+      const grd=g.createRadialGradient(128,128,10,128,128,128);
+      grd.addColorStop(0,'rgba(0,0,0,0.55)'); grd.addColorStop(1,'rgba(0,0,0,0)');
+      g.fillStyle=grd; g.fillRect(0,0,256,256);
+      return new THREE.CanvasTexture(c);
+    })();
+    const shadow = new THREE.Mesh(new THREE.PlaneGeometry(6,4.4), new THREE.MeshBasicMaterial({map:shadowTex, transparent:true}));
+    shadow.rotation.x = -Math.PI/2;
+    shadow.position.y = -1.62;
+    scene.add(shadow);
+
+    // ---- desenha o pregão sintético continuamente no canvas 2D ----
+    const vwapY = 220, candleW = 10, gap2 = 5, per = candleW+gap2;
+    let candles = [], lastY = 220, xCursor = 0;
+    function nextY(){
+      const pull = (vwapY-lastY)*0.02;
+      return Math.max(55, Math.min(365, lastY + (Math.random()-0.5)*24 + pull));
+    }
+    function drawChart(){
+      ctx.fillStyle = '#0A0C10'; ctx.fillRect(0,0,ch2.width,ch2.height);
+      ctx.strokeStyle = 'rgba(217,164,65,.5)'; ctx.setLineDash([7,6]); ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(0,vwapY); ctx.lineTo(ch2.width,vwapY); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(217,164,65,.85)'; ctx.font='600 15px monospace'; ctx.fillText('VWAP', 12, vwapY-10);
+      candles.forEach(c=>{
+        ctx.strokeStyle = c.up ? '#2ECC8F' : '#F2495C'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(c.x+candleW/2, c.wt); ctx.lineTo(c.x+candleW/2, c.wb); ctx.stroke();
+        ctx.fillStyle = c.up ? '#2ECC8F' : '#F2495C';
+        ctx.fillRect(c.x, c.top, candleW, Math.max(3,c.h));
+      });
+      texture.needsUpdate = true;
+    }
+    function pushCandle(){
+      const open=lastY, close=nextY(), up=close<=open;
+      const top=Math.min(open,close), bot=Math.max(open,close);
+      candles.push({x:xCursor, top, h:bot-top, wt:top-16, wb:bot+16, up});
+      xCursor += per; lastY = close;
+      if(xCursor > ch2.width){ candles.forEach(c=>c.x-=per); xCursor-=per; }
+      candles = candles.filter(c=>c.x > -per);
+    }
+    for(let i=0;i<38;i++) pushCandle();
+    drawChart();
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(!reduceMotion) setInterval(()=>{ pushCandle(); drawChart(); }, 600);
+
+    // ---- parallax com o mouse ----
+    let tx=0, ty=0, mx=0, my=0;
+    window.addEventListener('mousemove', e=>{
+      const r = wrap.getBoundingClientRect();
+      tx = ((e.clientX-r.left)/r.width - 0.5) * 0.5;
+      ty = ((e.clientY-r.top)/r.height - 0.5) * 0.22;
+    }, {passive:true});
+
     function animate(t){
       requestAnimationFrame(animate);
       if(!reduceMotion){
         mx += (tx-mx)*0.05; my += (ty-my)*0.05;
-        group.rotation.y = baseY + mx;
-        group.rotation.x = baseX + my*0.4 + Math.sin(t*0.00035)*0.015;
+        group.rotation.y = 0.30 + mx;
+        group.rotation.x = 0.02 + my*0.3 + Math.sin(t*0.00035)*0.012;
       } else {
-        group.rotation.y = baseY; group.rotation.x = baseX;
+        group.rotation.y = 0.30; group.rotation.x = 0.02;
       }
       renderer.render(scene, camera);
     }
     requestAnimationFrame(animate);
+
     window.addEventListener('resize', ()=>{
       const w = wrap.clientWidth, h = wrap.clientHeight;
       camera.aspect = w/h; camera.updateProjectionMatrix();
       renderer.setSize(w,h);
     });
-  }
-
-  function buildProceduralLaptop(){
-    const group = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({color:0x0d0e12, metalness:0.8, roughness:0.32});
-    const base = new THREE.Mesh(new THREE.BoxGeometry(3.7,0.14,2.55), bodyMat);
-    base.position.y = -1.05; group.add(base);
-    const kbDeck = new THREE.Mesh(new THREE.BoxGeometry(3.5,0.03,2.35), new THREE.MeshStandardMaterial({color:0x16181f, metalness:0.6, roughness:0.5}));
-    kbDeck.position.set(0,-0.97,0.03); group.add(kbDeck);
-    const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(3.7,2.34,0.1), bodyMat);
-    screenFrame.position.set(0,0.08,-1.16); screenFrame.rotation.x = -0.12;
-    group.add(screenFrame);
-    const screen = new THREE.Mesh(new THREE.PlaneGeometry(3.42,2.06), new THREE.MeshBasicMaterial({map:chartTexture}));
-    screen.position.set(0,0.095,-1.108); screen.rotation.x = -0.12;
-    group.add(screen);
-    scene.add(group);
-    startAnimating(group, 0.32, 0.04);
-  }
-
-  function tryLoadFbx(){
-    if(typeof THREE.FBXLoader === 'undefined'){
-      console.warn('[TapeDrill] THREE.FBXLoader não carregou (script bloqueado ou CDN fora do ar) — usando notebook procedural.');
-      buildProceduralLaptop(); return;
-    }
-    console.log('[TapeDrill] FBXLoader disponível, carregando assets/models/Laptop.fbx…');
-    const texLoader = new THREE.TextureLoader();
-    const baseMap = texLoader.load('assets/models/Laptop_BaseMap.jpg',
-      ()=>console.log('[TapeDrill] BaseMap carregado'),
-      undefined, e=>console.error('[TapeDrill] Falha ao carregar BaseMap:',e));
-    const normalMap = texLoader.load('assets/models/Laptop_Normal.jpg',
-      ()=>console.log('[TapeDrill] NormalMap carregado'),
-      undefined, e=>console.error('[TapeDrill] Falha ao carregar NormalMap:',e));
-    const loader = new THREE.FBXLoader();
-    loader.load('assets/models/Laptop.fbx', (obj)=>{
-      console.log('[TapeDrill] Laptop.fbx carregado. Filhos:', obj.children.length);
-      try{
-        let meshCount = 0;
-        obj.traverse(child=>{
-          if(child.isMesh){
-            meshCount++;
-            child.material = new THREE.MeshStandardMaterial({
-              map:baseMap, normalMap:normalMap, metalness:0.55, roughness:0.45
-            });
-          }
-        });
-        console.log('[TapeDrill] Meshes encontrados no FBX:', meshCount);
-        if(meshCount === 0) throw new Error('Nenhum mesh encontrado dentro do FBX carregado.');
-
-        // centraliza e normaliza a escala usando o bounding box real do modelo
-        const box = new THREE.Box3().setFromObject(obj);
-        const size = new THREE.Vector3(); box.getSize(size);
-        const center = new THREE.Vector3(); box.getCenter(center);
-        console.log('[TapeDrill] Bounding box do modelo — tamanho:', size, 'centro:', center);
-        const maxDim = Math.max(size.x,size.y,size.z);
-        if(!isFinite(maxDim) || maxDim <= 0){
-          throw new Error('Bounding box inválido (maxDim='+maxDim+') — o modelo provavelmente não tem geometria válida.');
-        }
-        const scale = FBX_TARGET_SIZE / maxDim;
-        console.log('[TapeDrill] Escala aplicada:', scale);
-
-        const group = new THREE.Group();
-        obj.scale.setScalar(scale);
-        obj.position.set(-center.x*scale, -center.y*scale, -center.z*scale);
-        obj.rotation.set(FBX_ROTATION.x, FBX_ROTATION.y, FBX_ROTATION.z);
-        group.add(obj);
-
-        // overlay com o gráfico ao vivo, posição inicial estimada (calibrar depois de ver ao vivo)
-        const screen = new THREE.Mesh(
-          new THREE.PlaneGeometry(SCREEN_OVERLAY.w, SCREEN_OVERLAY.h),
-          new THREE.MeshBasicMaterial({map:chartTexture})
-        );
-        screen.position.set(SCREEN_OVERLAY.x, SCREEN_OVERLAY.y, SCREEN_OVERLAY.z);
-        screen.rotation.set(SCREEN_OVERLAY.rotX, SCREEN_OVERLAY.rotY, 0);
-        group.add(screen);
-
-        scene.add(group);
-        startAnimating(group, 0.32, 0.04);
-        console.log('[TapeDrill] Notebook FBX adicionado à cena com sucesso.');
-      }catch(err){
-        console.error('[TapeDrill] Falha ao montar o modelo FBX, usando notebook procedural:', err);
-        buildProceduralLaptop();
-      }
-    }, undefined, (err)=>{
-      console.error('[TapeDrill] Falha ao carregar o arquivo FBX, usando notebook procedural:', err);
-      buildProceduralLaptop();
-    });
-  }
-
-  try{ tryLoadFbx(); }
-  catch(err){
-    console.error('Falha geral no hero 3D, usando gráfico de reserva:', err);
+  }catch(err){
+    console.error('[TapeDrill] Falha ao renderizar o notebook 3D, usando gráfico de reserva:', err);
     const old = wrap.querySelector('canvas'); if(old) old.remove();
     drawSvgFallback();
   }
-})();
-
-/* ============ ticker ao vivo ============ */
-(function(){
-  const items = [
-    {t:'TRN4 22,18', c:'up', d:'rejeição no VWAP confirmada'},
-    {t:'PPLA3', c:'down', d:'sustentação por 6 candles'},
-    {t:'R/R mínimo', c:'', d:'1,5 : 1'},
-    {t:'Fase 3', c:'', d:'100+ trades simulados'},
-    {t:'UNIP3', c:'up', d:'rompimento com volume'},
-    {t:'74–89%', c:'down', d:'dos traders de varejo perdem'},
-    {t:'VWAP', c:'', d:'referência institucional'},
-    {t:'Modo Exame', c:'', d:'4 casos com gabarito comentado'},
-    {t:'BBAS3', c:'down', d:'rejeição dupla, sem confirmação'},
-    {t:'Diário', c:'', d:'expectância em unidades de R'},
-  ];
-  const track = document.getElementById('tickerTrack');
-  if(!track) return;
-  function renderOnce(){
-    return items.map(it=>`<span><b>${it.t}</b>${it.c?`<i class="${it.c}">${it.c==='up'?'▲':'▼'}</i>`:''}<span class="sep">·</span>${it.d}</span>`).join('<span class="sep">•</span>');
-  }
-  track.innerHTML = renderOnce() + '<span class="sep">•</span>' + renderOnce();
-})();
-
-/* ============ revelação ao rolar a página ============ */
-(function(){
-  const els = document.querySelectorAll('[data-reveal], [data-reveal-stagger]');
-  if(!('IntersectionObserver' in window) || !els.length){ els.forEach(e=>e.classList.add('in')); return; }
-  const io = new IntersectionObserver((entries)=>{
-    entries.forEach(entry=>{
-      if(entry.isIntersecting){ entry.target.classList.add('in'); io.unobserve(entry.target); }
-    });
-  }, {threshold:0.15, rootMargin:'0px 0px -60px 0px'});
-  els.forEach(el=>io.observe(el));
-})();
-
-/* ============ contador animado da estatística ============ */
-(function(){
-  const el = document.getElementById('statNum');
-  if(!el) return;
-  const label = el.querySelector('span');
-  const target = 89, floor = 74;
-  let done = false;
-  function count(){
-    if(done) return; done = true;
-    const dur = 1400, start = performance.now();
-    function tick(now){
-      const p = Math.min(1, (now-start)/dur);
-      const eased = 1 - Math.pow(1-p, 3);
-      const val = Math.round(floor + (target-floor)*eased);
-      el.childNodes[0].nodeValue = (p<1 ? val : '74–89') + '';
-      if(p<1) requestAnimationFrame(tick); else { el.innerHTML='74–89'; el.appendChild(label); }
-    }
-    requestAnimationFrame(tick);
-  }
-  if('IntersectionObserver' in window){
-    new IntersectionObserver((entries)=>{
-      entries.forEach(e=>{ if(e.isIntersecting) count(); });
-    }, {threshold:0.4}).observe(el);
-  } else count();
 })();
 
 /* ============ selos 3D por seção (ícone bespoke) ============ */
