@@ -17,6 +17,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;1,500&family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 </head>
 <body>
 
@@ -151,14 +152,22 @@
 
 <script>
 /* ============ visual principal do hero: notebook 3D com pregão ao vivo na tela ============ */
-/* Se WebGL/Three.js falhar por qualquer motivo, cai pro gráfico SVG estático como reserva. */
+/* Ordem de tentativa: 1) modelo FBX real  2) notebook procedural (caixas)  3) gráfico SVG estático.
+   Cada etapa só entra em ação se a anterior falhar — nunca fica com a tela em branco. */
+
+// ---- ajustes de calibração do modelo FBX (mexer aqui depois de ver o resultado ao vivo) ----
+const FBX_ROTATION = {x:0, y:0, z:0};   // orientação inicial do modelo — FBX às vezes vem deitado
+const FBX_TARGET_SIZE = 4.2;             // maior dimensão do modelo, em unidades de cena, após escalar
+const SCREEN_OVERLAY = {                 // posição estimada da tela pro nosso gráfico ao vivo (chute inicial)
+  x:0, y:0.75, z:-0.05, w:2.9, h:1.85, rotX:-0.14, rotY:0
+};
+
 function drawSvgFallback(){
   document.getElementById('heroLaptop').style.display='none';
   const fb = document.getElementById('heroTapeFallback');
   fb.style.display='block';
   const svg = document.getElementById('candleGroup');
   const NS = 'http://www.w3.org/2000/svg';
-  const vwapY = 150, candleW = 6, gap = 3.4, per = candleW+gap;
   let x = 8, lastY = 150;
   const seedPath = [168,158,172,152,166,151,170,153,150,148,142,130,118,108,100,94,90,86,84,82];
   seedPath.forEach(y=>{
@@ -166,17 +175,17 @@ function drawSvgFallback(){
     const top=Math.min(open,close), bot=Math.max(open,close);
     const g=document.createElementNS(NS,'g');
     const wick=document.createElementNS(NS,'line');
-    wick.setAttribute('x1',x+candleW/2); wick.setAttribute('x2',x+candleW/2);
+    wick.setAttribute('x1',x+3); wick.setAttribute('x2',x+3);
     wick.setAttribute('y1',top-4); wick.setAttribute('y2',bot+4);
     wick.setAttribute('stroke', isUp?'#2ECC8F':'#F2495C'); wick.setAttribute('stroke-width','1');
     g.appendChild(wick);
     const body=document.createElementNS(NS,'rect');
-    body.setAttribute('x',x); body.setAttribute('width',candleW);
+    body.setAttribute('x',x); body.setAttribute('width',6);
     body.setAttribute('y',top); body.setAttribute('height',Math.max(1.5,bot-top));
     body.setAttribute('fill', isUp?'#2ECC8F':'#F2495C'); body.setAttribute('rx','1');
     g.appendChild(body);
     svg.appendChild(g);
-    x+=per; lastY=y;
+    x+=9.4; lastY=y;
   });
 }
 
@@ -184,114 +193,155 @@ function drawSvgFallback(){
   const wrap = document.getElementById('heroLaptop');
   if(!wrap || typeof THREE==='undefined'){ drawSvgFallback(); return; }
 
-  try{
-    const W = wrap.clientWidth||480, H = wrap.clientHeight||440;
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(30, W/H, 0.1, 100);
-    camera.position.set(0, 0.55, 6.4);
-    const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-    renderer.setSize(W,H);
-    wrap.appendChild(renderer.domElement);
+  const W = wrap.clientWidth||480, H = wrap.clientHeight||440;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(30, W/H, 0.1, 100);
+  camera.position.set(0, 0.55, 6.4);
+  const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(W,H);
+  wrap.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0x1a1a1a,1.2));
-    const key = new THREE.PointLight(0xD9A441,24,26); key.position.set(4,3,5); scene.add(key);
-    const fill = new THREE.PointLight(0x4DA3FF,10,26); fill.position.set(-5,-1,4); scene.add(fill);
-    const rim = new THREE.PointLight(0xffffff,6,20); rim.position.set(0,4,-3); scene.add(rim);
+  scene.add(new THREE.AmbientLight(0x1a1a1a,1.2));
+  const key = new THREE.PointLight(0xD9A441,24,26); key.position.set(4,3,5); scene.add(key);
+  const fill = new THREE.PointLight(0x4DA3FF,10,26); fill.position.set(-5,-1,4); scene.add(fill);
+  const rim = new THREE.PointLight(0xffffff,6,20); rim.position.set(0,4,-3); scene.add(rim);
 
-    const group = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({color:0x0d0e12, metalness:0.8, roughness:0.32});
+  // ---- canvas 2D com o pregão ao vivo, usado como textura da tela (compartilhado por qualquer modelo) ----
+  const ch = document.createElement('canvas');
+  ch.width = 640; ch.height = 400;
+  const ctx = ch.getContext('2d');
+  const chartTexture = new THREE.CanvasTexture(ch);
+  const vwapY = 220, candleW = 10, gap = 5, per = candleW+gap;
+  let candles = [], lastY = 220, xCursor = 0;
+  function nextY(){
+    const pull = (vwapY-lastY)*0.02;
+    return Math.max(55, Math.min(365, lastY + (Math.random()-0.5)*24 + pull));
+  }
+  function drawChart(){
+    ctx.fillStyle = '#0A0C10'; ctx.fillRect(0,0,ch.width,ch.height);
+    ctx.strokeStyle = 'rgba(217,164,65,.5)'; ctx.setLineDash([7,6]); ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(0,vwapY); ctx.lineTo(ch.width,vwapY); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='rgba(217,164,65,.85)'; ctx.font='600 15px monospace'; ctx.fillText('VWAP', 12, vwapY-10);
+    candles.forEach(c=>{
+      ctx.strokeStyle = c.up ? '#2ECC8F' : '#F2495C'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(c.x+candleW/2, c.wt); ctx.lineTo(c.x+candleW/2, c.wb); ctx.stroke();
+      ctx.fillStyle = c.up ? '#2ECC8F' : '#F2495C';
+      ctx.fillRect(c.x, c.top, candleW, Math.max(3,c.h));
+    });
+    chartTexture.needsUpdate = true;
+  }
+  function pushCandle(){
+    const open=lastY, close=nextY(), up=close<=open;
+    const top=Math.min(open,close), bot=Math.max(open,close);
+    candles.push({x:xCursor, top, h:bot-top, wt:top-16, wb:bot+16, up});
+    xCursor += per; lastY = close;
+    if(xCursor > ch.width){ candles.forEach(c=>c.x-=per); xCursor-=per; }
+    candles = candles.filter(c=>c.x > -per);
+  }
+  for(let i=0;i<38;i++) pushCandle();
+  drawChart();
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!reduceMotion) setInterval(()=>{ pushCandle(); drawChart(); }, 600);
 
-    const base = new THREE.Mesh(new THREE.BoxGeometry(3.7,0.14,2.55), bodyMat);
-    base.position.y = -1.05;
-    group.add(base);
+  // ---- parallax com o mouse (compartilhado) ----
+  let tx=0, ty=0, mx=0, my=0;
+  window.addEventListener('mousemove', e=>{
+    const r = wrap.getBoundingClientRect();
+    tx = ((e.clientX-r.left)/r.width - 0.5) * 0.55;
+    ty = ((e.clientY-r.top)/r.height - 0.5) * 0.3;
+  }, {passive:true});
 
-    const kbDeck = new THREE.Mesh(new THREE.BoxGeometry(3.5,0.03,2.35), new THREE.MeshStandardMaterial({color:0x16181f, metalness:0.6, roughness:0.5}));
-    kbDeck.position.set(0,-0.97,0.03);
-    group.add(kbDeck);
-
-    const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(3.7,2.34,0.1), bodyMat);
-    screenFrame.position.set(0, 0.08, -1.16);
-    screenFrame.rotation.x = -0.12;
-    group.add(screenFrame);
-
-    // canvas 2D com o pregão ao vivo, usado como textura da tela
-    const ch = document.createElement('canvas');
-    ch.width = 640; ch.height = 400;
-    const ctx = ch.getContext('2d');
-    const texture = new THREE.CanvasTexture(ch);
-    texture.colorSpace = THREE.SRGBColorSpace || texture.colorSpace;
-    const screen = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.42,2.06),
-      new THREE.MeshBasicMaterial({map:texture})
-    );
-    screen.position.set(0, 0.095, -1.108);
-    screen.rotation.x = -0.12;
-    group.add(screen);
-
-    scene.add(group);
-
-    // ---- desenha o pregão sintético continuamente no canvas 2D ----
-    const vwapY = 220, candleW = 10, gap = 5, per = candleW+gap;
-    let candles = [], lastY = 220, xCursor = 0;
-    function nextY(){
-      const pull = (vwapY-lastY)*0.02;
-      return Math.max(55, Math.min(365, lastY + (Math.random()-0.5)*24 + pull));
-    }
-    function drawChart(){
-      ctx.fillStyle = '#0A0C10'; ctx.fillRect(0,0,ch.width,ch.height);
-      ctx.strokeStyle = 'rgba(217,164,65,.5)'; ctx.setLineDash([7,6]); ctx.lineWidth=1.5;
-      ctx.beginPath(); ctx.moveTo(0,vwapY); ctx.lineTo(ch.width,vwapY); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle='rgba(217,164,65,.85)'; ctx.font='600 15px monospace'; ctx.fillText('VWAP', 12, vwapY-10);
-      candles.forEach(c=>{
-        ctx.strokeStyle = c.up ? '#2ECC8F' : '#F2495C'; ctx.lineWidth=2;
-        ctx.beginPath(); ctx.moveTo(c.x+candleW/2, c.wt); ctx.lineTo(c.x+candleW/2, c.wb); ctx.stroke();
-        ctx.fillStyle = c.up ? '#2ECC8F' : '#F2495C';
-        ctx.fillRect(c.x, c.top, candleW, Math.max(3,c.h));
-      });
-      texture.needsUpdate = true;
-    }
-    function pushCandle(){
-      const open=lastY, close=nextY(), up=close<=open;
-      const top=Math.min(open,close), bot=Math.max(open,close);
-      candles.push({x:xCursor, top, h:bot-top, wt:top-16, wb:bot+16, up});
-      xCursor += per; lastY = close;
-      if(xCursor > ch.width){ candles.forEach(c=>c.x-=per); xCursor-=per; }
-      candles = candles.filter(c=>c.x > -per);
-    }
-    for(let i=0;i<38;i++) pushCandle();
-    drawChart();
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if(!reduceMotion) setInterval(()=>{ pushCandle(); drawChart(); }, 600);
-
-    // parallax com o mouse
-    let tx=0, ty=0, mx=0, my=0;
-    window.addEventListener('mousemove', e=>{
-      const r = wrap.getBoundingClientRect();
-      tx = ((e.clientX-r.left)/r.width - 0.5) * 0.55;
-      ty = ((e.clientY-r.top)/r.height - 0.5) * 0.3;
-    }, {passive:true});
-
+  function startAnimating(group, baseY, baseX){
     function animate(t){
       requestAnimationFrame(animate);
       if(!reduceMotion){
         mx += (tx-mx)*0.05; my += (ty-my)*0.05;
-        group.rotation.y = 0.32 + mx;
-        group.rotation.x = 0.04 + my*0.4 + Math.sin(t*0.00035)*0.015;
+        group.rotation.y = baseY + mx;
+        group.rotation.x = baseX + my*0.4 + Math.sin(t*0.00035)*0.015;
       } else {
-        group.rotation.y = 0.32; group.rotation.x = 0.04;
+        group.rotation.y = baseY; group.rotation.x = baseX;
       }
       renderer.render(scene, camera);
     }
     requestAnimationFrame(animate);
-
     window.addEventListener('resize', ()=>{
       const w = wrap.clientWidth, h = wrap.clientHeight;
       camera.aspect = w/h; camera.updateProjectionMatrix();
       renderer.setSize(w,h);
     });
-  }catch(err){
-    console.error('Falha ao renderizar o notebook 3D, usando gráfico de reserva:', err);
+  }
+
+  function buildProceduralLaptop(){
+    const group = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({color:0x0d0e12, metalness:0.8, roughness:0.32});
+    const base = new THREE.Mesh(new THREE.BoxGeometry(3.7,0.14,2.55), bodyMat);
+    base.position.y = -1.05; group.add(base);
+    const kbDeck = new THREE.Mesh(new THREE.BoxGeometry(3.5,0.03,2.35), new THREE.MeshStandardMaterial({color:0x16181f, metalness:0.6, roughness:0.5}));
+    kbDeck.position.set(0,-0.97,0.03); group.add(kbDeck);
+    const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(3.7,2.34,0.1), bodyMat);
+    screenFrame.position.set(0,0.08,-1.16); screenFrame.rotation.x = -0.12;
+    group.add(screenFrame);
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(3.42,2.06), new THREE.MeshBasicMaterial({map:chartTexture}));
+    screen.position.set(0,0.095,-1.108); screen.rotation.x = -0.12;
+    group.add(screen);
+    scene.add(group);
+    startAnimating(group, 0.32, 0.04);
+  }
+
+  function tryLoadFbx(){
+    if(typeof THREE.FBXLoader === 'undefined'){ buildProceduralLaptop(); return; }
+    const texLoader = new THREE.TextureLoader();
+    const baseMap = texLoader.load('assets/models/Laptop_BaseMap.jpg');
+    const normalMap = texLoader.load('assets/models/Laptop_Normal.jpg');
+    const loader = new THREE.FBXLoader();
+    loader.load('assets/models/Laptop.fbx', (obj)=>{
+      try{
+        obj.traverse(child=>{
+          if(child.isMesh){
+            child.material = new THREE.MeshStandardMaterial({
+              map:baseMap, normalMap:normalMap, metalness:0.55, roughness:0.45
+            });
+          }
+        });
+
+        // centraliza e normaliza a escala usando o bounding box real do modelo
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = new THREE.Vector3(); box.getSize(size);
+        const center = new THREE.Vector3(); box.getCenter(center);
+        const maxDim = Math.max(size.x,size.y,size.z) || 1;
+        const scale = FBX_TARGET_SIZE / maxDim;
+
+        const group = new THREE.Group();
+        obj.position.sub(center);
+        obj.scale.setScalar(scale);
+        obj.rotation.set(FBX_ROTATION.x, FBX_ROTATION.y, FBX_ROTATION.z);
+        group.add(obj);
+
+        // overlay com o gráfico ao vivo, posição inicial estimada (calibrar depois de ver ao vivo)
+        const screen = new THREE.Mesh(
+          new THREE.PlaneGeometry(SCREEN_OVERLAY.w, SCREEN_OVERLAY.h),
+          new THREE.MeshBasicMaterial({map:chartTexture})
+        );
+        screen.position.set(SCREEN_OVERLAY.x, SCREEN_OVERLAY.y, SCREEN_OVERLAY.z);
+        screen.rotation.set(SCREEN_OVERLAY.rotX, SCREEN_OVERLAY.rotY, 0);
+        group.add(screen);
+
+        scene.add(group);
+        startAnimating(group, 0.32, 0.04);
+      }catch(err){
+        console.error('Falha ao montar o modelo FBX, usando notebook procedural:', err);
+        buildProceduralLaptop();
+      }
+    }, undefined, (err)=>{
+      console.error('Falha ao carregar o FBX, usando notebook procedural:', err);
+      buildProceduralLaptop();
+    });
+  }
+
+  try{ tryLoadFbx(); }
+  catch(err){
+    console.error('Falha geral no hero 3D, usando gráfico de reserva:', err);
     const old = wrap.querySelector('canvas'); if(old) old.remove();
     drawSvgFallback();
   }
