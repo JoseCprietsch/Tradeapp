@@ -95,7 +95,13 @@ input:focus{outline:none; border-color:var(--gold)}
     <div class="oauth-divider"><span>ou</span></div>
 
     <div class="frow full"><span class="flabel">Email</span><input type="email" id="authEmail" placeholder="voce@email.com"></div>
-    <div class="frow full"><span class="flabel">Senha</span><input type="password" id="authPass" placeholder="mínimo 6 caracteres"></div>
+    <div class="frow full">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span class="flabel" style="margin-bottom:0">Senha</span>
+        <a href="#" id="btnEsqueci" style="font-size:12px;color:var(--faint);text-decoration:underline">Esqueci minha senha</a>
+      </div>
+      <input type="password" id="authPass" placeholder="mínimo 6 caracteres">
+    </div>
     <button class="btn primary" id="btnEntrar" disabled>Entrar</button>
     <button class="btn ghost" id="btnCriarConta">Criar conta</button>
     <div id="authMsg"></div>
@@ -171,6 +177,27 @@ async function cloudSignInGoogle(){
 $('#btnEntrar').addEventListener('click',cloudSignIn);
 $('#btnCriarConta').addEventListener('click',cloudSignUp);
 $('#btnGoogle').addEventListener('click',cloudSignInGoogle);
+
+async function cloudResetPassword(){
+  const email = $('#authEmail').value.trim();
+  if(!email || !email.includes('@')){
+    setAuthMsg('Digita seu email no campo acima primeiro, depois clica em "Esqueci minha senha".', true);
+    $('#authEmail').focus();
+    return;
+  }
+  setAuthMsg('Enviando email de recuperação…');
+  try{
+    const resetUrl = new URL('reset.html', window.location.href).href;
+    const {error} = await withTimeout(sb.auth.resetPasswordForEmail(email, {
+      redirectTo: resetUrl
+    }), 12000, 'Conexão com o servidor demorou demais.');
+    if(error) return setAuthMsg(error.message, true);
+    setAuthMsg('Se esse email tiver uma conta, chegou uma mensagem com o link de redefinição. Confira sua caixa de entrada (e o spam).');
+  }catch(err){
+    setAuthMsg('Não consegui conectar ao servidor. ('+(err.message||'')+')', true);
+  }
+}
+$('#btnEsqueci').addEventListener('click', e=>{ e.preventDefault(); cloudResetPassword(); });
 
 function updGateBtn(){
   const email=$('#authEmail').value.trim(), pass=$('#authPass').value;

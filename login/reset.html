@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<!--
+  PÁGINA: Redefinir senha (/login/reset.html)
+  O QUE É: destino do link enviado por email quando a pessoa clica em
+  "Esqueci minha senha" no /login/. O Supabase coloca um token na URL
+  (hash) que o supabase-js já processa sozinho ao carregar a página,
+  criando uma sessão temporária de recuperação — só então dá pra chamar
+  updateUser({password}) pra trocar de fato.
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redefinir senha — TapeDrill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --ink:#090B10; --panel:#10141C; --text:#EDEFF4; --muted:#8B93A6; --faint:#4E5668;
+  --gold:#D9A441; --sell:#F2495C; --line:#212837;
+  --font-ui:'EB Garamond', Georgia, serif;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+body{
+  background:#050608; color:var(--text); font-family:var(--font-ui); min-height:100vh;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+  background-image:
+    radial-gradient(1100px 620px at 82% -10%, #14161c 0%, transparent 60%),
+    radial-gradient(900px 560px at -10% 108%, #101216 0%, transparent 55%);
+}
+a{color:inherit}
+.card{width:100%; max-width:360px}
+.brand{display:flex; align-items:center; gap:8px; font-weight:700; font-size:15px; color:var(--muted); margin-bottom:28px; text-decoration:none}
+.brand .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold)}
+h1{font-size:26px; font-weight:700; margin-bottom:10px}
+p{font-size:14.5px; font-style:italic; color:var(--muted); line-height:1.55; margin-bottom:24px}
+.flabel{display:block; font-size:12.5px; color:var(--muted); margin-bottom:6px}
+.frow{margin-bottom:14px}
+input{
+  width:100%; background:#12151b; border:1px solid var(--line); color:var(--text);
+  padding:11px 13px; border-radius:8px; font-family:var(--font-ui); font-size:14.5px;
+}
+input:focus{outline:none; border-color:var(--gold)}
+.btn{
+  width:100%; font-family:var(--font-ui); font-weight:700; font-size:14px; letter-spacing:.4px; text-transform:uppercase;
+  padding:13px 24px; border-radius:9px; border:0; background:var(--gold); color:#1A1405; cursor:pointer;
+}
+.btn:disabled{opacity:.4; cursor:not-allowed}
+#msg{font-size:12px;color:var(--faint);margin-top:14px;line-height:1.5;min-height:14px}
+#msg.err{color:var(--sell)}
+#msg.ok{color:#2ECC8F}
+</style>
+</head>
+<body>
+<div class="card">
+  <a href="/" class="brand"><span class="dot"></span>TapeDrill</a>
+  <h1>Escolher nova senha</h1>
+  <p>Só funciona se você chegou aqui pelo link do email de recuperação.</p>
+
+  <div class="frow"><span class="flabel">Nova senha</span><input type="password" id="newPass" placeholder="mínimo 6 caracteres"></div>
+  <div class="frow"><span class="flabel">Confirmar nova senha</span><input type="password" id="newPass2" placeholder="repita a senha"></div>
+  <button class="btn" id="btnSalvar" disabled>Salvar nova senha</button>
+  <div id="msg"></div>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const SUPABASE_URL = 'https://atmmupzdcjtyncvnxlie.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0bW11cHpkY2p0eW5jdm54bGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MzY4ODUsImV4cCI6MjEwMjIxMjg4NX0.LC4WpfayOqOfVb6v9RSOeJIj2Za1_NOyG7P3sUd-3a8';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function setMsg(msg, cls){
+  const el = $('#msg'); el.textContent = msg||'';
+  el.className = cls||'';
+}
+function updBtn(){
+  const a=$('#newPass').value, b=$('#newPass2').value;
+  $('#btnSalvar').disabled = !(a.length>=6 && a===b);
+}
+$('#newPass').addEventListener('input', updBtn);
+$('#newPass2').addEventListener('input', updBtn);
+
+// verifica se chegamos aqui com uma sessão de recuperação válida (o token vem no hash da URL)
+let hasRecoverySession = false;
+sb.auth.onAuthStateChange((event)=>{
+  if(event === 'PASSWORD_RECOVERY') hasRecoverySession = true;
+});
+(async function checkSession(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(session) hasRecoverySession = true;
+  else setMsg('Esse link expirou ou já foi usado. Volta em /login/ e pede um novo.', 'err');
+})();
+
+$('#btnSalvar').addEventListener('click', async ()=>{
+  if(!hasRecoverySession) return setMsg('Esse link expirou ou já foi usado. Volta em /login/ e pede um novo.', 'err');
+  const pass = $('#newPass').value;
+  setMsg('Salvando…');
+  try{
+    const {error} = await sb.auth.updateUser({password: pass});
+    if(error) return setMsg(error.message, 'err');
+    setMsg('Senha alterada! Redirecionando…', 'ok');
+    setTimeout(()=>{ window.location.href = '../simulador-vwap.html'; }, 1200);
+  }catch(err){
+    setMsg('Não consegui conectar ao servidor. ('+(err.message||'')+')', 'err');
+  }
+});
+</script>
+</body>
+</html>
