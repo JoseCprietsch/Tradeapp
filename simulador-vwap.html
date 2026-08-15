@@ -737,6 +737,7 @@ window.addEventListener('resize',resize);
 function draw(){
   const W=cv.clientWidth,H=cv.clientHeight||520;
   ctx.clearRect(0,0,W,H);
+  if(W<=0||H<=0) return; // canvas ainda escondido (ex: aguardando verificação de login) — nada pra desenhar ainda
   if(cursor===0){ctx.fillStyle='#5A6378';ctx.font='13px Sora';ctx.textAlign='center';
     ctx.fillText('Gere um novo pregão, importe um CSV ou entre no Modo Exame',W/2,H/2);return;}
   const padR=62, padB=42, volH=70;
@@ -748,6 +749,7 @@ function draw(){
   const end=cursor-viewOffset;
   const start=Math.max(0,end-visN);
   const view=candles.slice(start,end);
+  if(!view.length) return; // proteção extra: nada pra desenhar nesse recorte
   let lo=Infinity,hi=-Infinity,vMax=0;
   view.forEach(k=>{lo=Math.min(lo,k.l,k.vwap);hi=Math.max(hi,k.h,k.vwap);vMax=Math.max(vMax,k.v)});
   if(pos){lo=Math.min(lo,pos.stop,pos.alvo);hi=Math.max(hi,pos.stop,pos.alvo);}
@@ -1172,6 +1174,7 @@ function updateAuthUI(){
     if(redirectMsg) redirectMsg.style.display='none';
     app.style.display=''; head.style.display='';
     $('#authUserEmail').textContent=currentUser.email;
+    resize(); // o gráfico foi pulado enquanto a tela estava escondida — redesenha agora que tem largura de verdade
   } else {
     window.location.href = LOGIN_URL;
   }
