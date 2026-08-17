@@ -1,143 +1,112 @@
-# TapeDrill Pro — plano de arquitetura
+# TapeDrill Pro — plano de arquitetura (v2, validado contra a tela real)
 
-Estrutura pra aproximar o simulador de uma plataforma profissional de verdade
-(referência: Profit/Nelogica, a plataforma dominante no mercado brasileiro).
-Baseado em pesquisa sobre o fluxo real de um trader — do login até o fechamento
-do pregão — documentado em detalhe nesta conversa.
+Estrutura pra aproximar o simulador de uma plataforma profissional de verdade.
+Referência: Profit Pro (Nelogica) — validado contra screenshots reais da tela
+completa e pesquisa na documentação oficial da Nelogica, ModalMais, Toro,
+InfoMoney e Traders.com.br.
 
-Isso é um **plano**, não uma implementação — serve pra guiar as próximas fases
-de construção, uma de cada vez.
+A v1 deste plano cobria só as ferramentas centrais de operação. A v2 cobre
+**o dia inteiro de um trader** — tudo que ele vê e faz, do momento em que abre
+a plataforma até o fim do pregão.
 
 ---
 
-## O que já existe hoje vs. o que falta
+## O mapa completo da tela profissional (o que a tela real do Profit tem)
 
-| Ferramenta profissional | Equivalente hoje no TapeDrill | Status |
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ Menu (Arquivo·Gráfico·Estudos·Negociação·Notícias·Workspaces) [conta] │
+├──────────────┬──────────────────────────────┬────────────────────────┤
+│ GRADE DE     │ GRÁFICO (ticker · timeframe  │ BOLETA COMPLETA        │
+│ COTAÇÕES     │  · candles · VWAP · desenho) │ (conta Sim/Real,       │
+│ (ativos por  │                              │  preço, stop, qtd,     │
+│  setor, mini │                              │  validade, C/V Limite, │
+│  sparkline,  │                              │  C/V Mercado, Zerar,   │
+│  último, %)  │                              │  Cancelar+Zerar)       │
+│              ├──────────────────────────────┤────────────────────────┤
+│              │ POSIÇÃO / DAY TRADE          │ BOOK DE OFERTAS        │
+│              │ (Res. Aberto R$/%, Res. Dia  │ (barra de pressão %,   │
+│              │  R$/%, tabela por ativo)     │  níveis compra/venda,  │
+│              │                              │  barras de volume)     │
+├──────────────┴──────────────────────────────┴────────────────────────┤
+│ Abas de layout (Layout 1·2·3)   ·   Status: hora · Conectado · versão │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+Ferramentas que abrem em janelas: Times & Trades, VAP, Medidores de Pressão,
+Notícias, SuperDOM.
+
+---
+
+## Checklist completo: item da tela real → equivalente TapeDrill
+
+| # | Item da tela real | O que é | Status no TapeDrill |
+|---|---|---|---|
+| 1 | Gráfico com VWAP e volume | Núcleo da leitura | ✅ Existe |
+| 2 | Boleta com sizing por risco | Envio de ordem | ✅ Existe (simples) |
+| 3 | Seletor de conta "Sim/Real" | Simulador embutido | ✅ Somos 100% sim — virar selo visível |
+| 4 | Calendário econômico | Catalisadores do dia | ✅ Existe (nosso painel) |
+| 5 | Diário/registro | Avaliação contínua | ✅ Existe |
+| 6 | **Grade de Cotações** | Lista de ativos por setor, sparkline, último preço, variação % — é onde o trader ESCOLHE o que operar | 🔲 **NOVO** — gerar 6-10 ativos sintéticos por "dia", agrupados em setores; o trader escaneia e escolhe o melhor setup (habilidade real de seleção!) |
+| 7 | **Times & Trades** | Negócios executados: hora, preço, qtd, agressor | 🔲 NOVO (peça 1 da v1, mantida) |
+| 8 | **Book de Ofertas** | Níveis de compra (azul) e venda (vermelho) com quantidades | 🔲 NOVO |
+| 9 | **Barra de pressão/agressão** | % compradores × vendedores em cima do book e do T&T | 🔲 **NOVO** — com a lição: % do book sozinho NÃO é pressão; só confirmada junto do T&T |
+| 10 | **VAP (Volume at Price)** | Volume por faixa de preço, POC destacado | 🔲 NOVO |
+| 11 | **Boleta completa** | Preço, stop offset, qtd + botões rápidos (100/200/300), validade, C/V Limite, C/V Mercado, Cancelar Ord., Inverter, Zerar, Cancelar+Zerar | 🔲 Expandir a atual |
+| 12 | **Painel Posição/Day Trade** | Res. Aberto R$ e %, Res. Dia R$ e %, tabela por ativo | 🔲 Melhorar cardPos + criar "resultado do dia" |
+| 13 | **Notícias** | Feed de notícias ligado aos ativos | 🔲 **NOVO** — reaproveitar os catalisadores sintéticos como "manchetes" no feed |
+| 14 | **Timeframe/período** | 1min, 5min, 15min... | 🔲 **NOVO** — hoje somos fixos em 1min; agregar candles é cálculo simples |
+| 15 | **Abas de layout** | Layout 1/2/3 salvos | 🔲 Baixa prioridade |
+| 16 | **Ferramentas de desenho** | Linha de tendência, retângulo, fibo | 🔲 Baixa prioridade (linha horizontal de suporte/resistência primeiro) |
+| 17 | **Barra de status** | Hora, versão, "Conectado" | 🔲 Fácil — relógio do pregão já existe, falta o resto |
+| 18 | Atalhos (F3/F5/F6, Ctrl+R) | Agilidade | 🔲 NOVO (C/V/Z/I adaptados) |
+| 19 | Medidores de Pressão (janela própria) | Pressão do book + agressão do T&T lado a lado | 🔲 Coberto pelo item 9 de forma integrada |
+| 20 | Bookmap/CVD (heatmap, delta cumulativo) | Módulo avançado pago do Profit | ❌ Fora de escopo (complexidade altíssima, valor marginal pro treino) |
+
+---
+
+## O motor de dados que sustenta tudo (pré-requisito)
+
+`gerarPregao()` precisa evoluir de "1 ativo, candles de 1min" para:
+
+```
+gerarDia(seed, nivel)
+  → ativos[]: 6-10 tickers sintéticos com setor, cada um com seu
+    próprio gerarPregao (seeds derivados) — uns em tendência, uns
+    laterais, uns com catalisador. SÓ ALGUNS têm setup válido no dia
+    (treina a seleção: a maioria dos dias/ativos NÃO vale operar)
+  → por ativo:
+      candles (como hoje)
+      ticks: negócios sintéticos por candle {hora, preço, qtd, agressor}
+      bookSnapshot(idx): níveis de oferta derivados de vol/volume
+      manchetes: catalisadores viram notícias com horário
+```
+
+## Ordem de implementação (v2)
+
+| Fase | Entrega | Por quê nessa ordem |
 |---|---|---|
-| Gráfico com VWAP, volume | Gráfico de candles + VWAP | ✅ Existe |
-| Boleta com sizing por risco | Boleta com capital/risco → quantidade | ✅ Existe |
-| Gate de critérios obrigatório | Checklist de 4-5 critérios | ✅ Existe (é uma peça nossa, sem equivalente direto no Profit) |
-| Calendário de catalisadores | Painel "Calendário do pregão" | ✅ Existe |
-| Diário com métricas (R, expectância) | Diário do simulador | ✅ Existe |
-| Níveis de dificuldade | Iniciante/Intermediário/Trader | ✅ Existe |
-| **Book de Ofertas (Level 2)** | — | 🔲 Falta |
-| **Times & Trades (fita/tape reading)** | — | 🔲 Falta |
-| **Volume at Price (VAP)** | — | 🔲 Falta |
-| **Tipos de ordem (limitada, stop, OCO)** | Só stop/alvo simples | 🔲 Falta |
-| **Painel de posição com P&L ao vivo** | Básico (cardPos) | 🔲 Melhorar |
-| **Atalhos de teclado** (F3, F5, F6...) | Só Espaço/P | 🔲 Falta |
-| **Múltiplos layouts/workspaces** | Layout único | 🔲 Falta (baixa prioridade) |
+| 1 | Motor de ticks + **Times & Trades** | Fundação de dados + peça mais pedagógica |
+| 2 | **Posição/Resultado do dia** (Res. Aberto, Res. Dia em R$ e R) | Melhora o que existe, sem dado novo |
+| 3 | **Book de Ofertas + barra de pressão** | Usa o motor da fase 1 |
+| 4 | **Grade de Cotações** (multi-ativos) | Muda o gerador pra gerarDia — grande, mas transforma o produto |
+| 5 | **VAP + timeframes** | Reaproveitam dados existentes |
+| 6 | **Boleta completa** (limitada, stop, validade, botões rápidos) | Muda lógica de execução |
+| 7 | **Notícias sintéticas + barra de status + selo Sim** | Ambiência/imersão |
+| 8 | Atalhos de teclado | Polish |
+| 9 | Desenho no gráfico + abas de layout | Baixa prioridade |
 
----
-
-## Peça 1 — Motor de dados sintéticos mais rico
-
-Hoje `gerarPregao()` produz só candles de 1 minuto com OHLCV. Pra alimentar
-Book de Ofertas e Times & Trades, precisa gerar dados numa granularidade menor:
-
-```
-gerarPregao(seed, nivel)
-  → candles (como já existe, 1/min)
-  → NOVO: ticks (vários negócios sintéticos por candle, cada um com
-    {hora, preço, qtd, agressor: 'comprador'|'vendedor'})
-  → NOVO: bookSnapshot(candleIdx) — função que gera, sob demanda, uma
-    "foto" do livro de ofertas naquele instante: 5-8 níveis de preço
-    acima/abaixo do último negócio, cada um com uma quantidade ofertada
-    (derivada da volatilidade/volume do candle — mais volátil = ofertas
-    mais finas e dispersas; mais calmo = ofertas mais grossas e concentradas)
-```
-
-Os ticks dentro de cada candle já têm informação suficiente pra alimentar o
-Times & Trades; o book pode ser recalculado a cada tick sem precisar guardar
-histórico completo dele (só o snapshot atual importa pra quem está operando).
-
-## Peça 2 — Times & Trades (a fita)
-
-Painel novo, lista rolante, mais simples de construir dos dois (não precisa
-de um "livro" persistente, só mostrar os ticks conforme acontecem):
-
-- Colunas: hora, preço, quantidade, agressor (cor verde=comprador / vermelho=vendedor)
-- Realce visual pra negócios "grandes" (acima de um múltiplo da média do dia)
-- É a ferramenta mais alinhada com o que já ensinamos (controle comprador/vendedor,
-  Fase 1 do currículo) — devia ser a **primeira peça nova a construir**
-
-## Peça 3 — Book de Ofertas (Level 2)
-
-- 5-8 níveis de compra (azul) e venda (vermelho) acima/abaixo do preço atual
-- Cada nível mostra preço + quantidade ofertada
-- Atualiza a cada candle (não precisa ser tick-a-tick pra começar)
-- Visual: duas colunas espelhadas, como o padrão do mercado
-
-## Peça 4 — Volume at Price (VAP)
-
-- Histograma horizontal ao lado do gráfico, mostrando volume por faixa de preço
-- Reaproveita os dados que o candle já tem (soma de volume por bucket de preço)
-- O ponto de maior volume (POC) pode ser destacado — é um nível natural de
-  suporte/resistência, reforça a leitura do gráfico principal
-
-## Peça 5 — Boleta expandida (tipos de ordem)
-
-Hoje a boleta só manda "compra/venda com stop e alvo". Adicionar:
-
-- **Ordem limitada**: define um preço, só executa se o mercado chegar lá
-- **Ordem stop de entrada**: só dispara se o preço romper um nível (não é
-  a mesma coisa que o stop de proteção que já existe)
-- **OCO**: já meio que existe conceitualmente (stop + alvo simultâneos),
-  só falta nomear e deixar explícito na interface
-
-## Peça 6 — Atalhos de teclado
-
-Mapeamento sugerido (adaptado do padrão Profit, mas com nossas teclas já
-ocupadas por Espaço/P preservadas):
-
-| Tecla | Ação |
-|---|---|
-| `C` | Compra a mercado |
-| `V` | Venda a mercado |
-| `Z` | Zerar posição |
-| `I` | Inverter posição |
-| `Espaço` | Avança 1 candle *(já existe)* |
-| `P` | Reproduz/pausa *(já existe)* |
-
-## Peça 7 — Painel de posição com P&L ao vivo
-
-Melhorar o `cardPos` existente pra mostrar, atualizando a cada candle
-enquanto a posição está aberta: preço médio, quantidade, resultado em R$
-flutuante, e resultado em unidades de R (não só no fechamento da operação).
-
----
-
-## Como isso se conecta com os níveis de dificuldade
-
-As ferramentas "pro" (Book, Times & Trades, VAP) fazem mais sentido
-condicionadas ao nível escolhido, não sempre visíveis:
+## Ligação com os níveis de dificuldade (mantida da v1, expandida)
 
 | Nível | O que aparece |
 |---|---|
-| **Iniciante** | Só o gráfico + boleta simples, como hoje — informação de mais atrapalha quem está começando |
-| **Intermediário** | Adiciona Times & Trades (a peça mais pedagógica) |
-| **Trader** | Tudo: Book de Ofertas, Times & Trades, VAP, boleta com todos os tipos de ordem — sem ajuda visual (igual já vale hoje pro calendário/catalisador) |
+| **Iniciante** | Gráfico + boleta simples + calendário. 1 ativo só (sem Grade — escolher ativo é habilidade avançada) |
+| **Intermediário** | + Times & Trades, + Grade com 4-5 ativos, + painel de resultado |
+| **Trader** | Tudo: Grade completa, Book + pressão, VAP, boleta completa, notícias — sem calendário, sem alertas (já vale hoje) |
 
-Isso também resolve um problema de design: a tela do Profit "parece um
-cockpit de avião" pra quem começa — não queremos isso pro Iniciante,
-queremos isso só pra quem já provou que aguenta a complexidade.
+## Fontes
 
----
-
-## Ordem de implementação sugerida
-
-1. **Times & Trades** — maior valor pedagógico, menor esforço técnico
-2. **Painel de posição com P&L ao vivo** — melhora o que já existe, sem
-   depender de dados novos
-3. **Book de Ofertas** — precisa do motor de dados sintéticos da Peça 1
-4. **Volume at Price** — reaproveita dados já existentes, esforço menor
-5. **Boleta expandida (tipos de ordem)** — maior mudança na lógica de negócio
-6. **Atalhos de teclado** — polish, fazer por último
-7. **Workspaces/layouts múltiplos** — baixa prioridade, complexidade alta
-   pra pouco ganho num produto web (diferente de um app desktop)
-
-## Fontes da pesquisa
-
-Nelogica (blog.nelogica.com.br, ajuda.nelogica.com.br), Traders.com.br,
-Toro Investimentos, ModalMais — todos documentando o Profit/Profit Pro,
-a plataforma de referência do mercado brasileiro.
+Nelogica (docs oficiais: Grade de Cotações, Livro de Ofertas, SuperDOM,
+Times & Trades, Medidores de Pressão, Workspaces), ModalMais, Toro,
+InfoMoney, Traders.com.br, Portal do Trader. Screenshots reais do
+Profit Pro 5.5 fornecidos pelo José.
