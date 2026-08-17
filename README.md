@@ -11,6 +11,7 @@ no VWAP e disciplina de risco antes de operar com capital real.
 |---|---|
 | Ver como o repositório inteiro se organiza | [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) |
 | Saber em que fase do curso o projeto está | [`docs/CURRICULO.md`](docs/CURRICULO.md) |
+| Ver o plano de ferramentas profissionais (Book, Times & Trades, VAP) | [`docs/TAPEDRILL_PRO.md`](docs/TAPEDRILL_PRO.md) |
 | Configurar login/cadastro (Supabase) | [`docs/SUPABASE.md`](docs/SUPABASE.md) |
 | Mexer no visual do site (home/método/cenários) | [`assets/style.css`](assets/style.css) |
 | Mexer no simulador em si | [`simulador-vwap.html`](simulador-vwap.html) — mapa de seções no comentário do topo do arquivo |
