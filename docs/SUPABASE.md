@@ -52,14 +52,33 @@ Toda tabela nasce com **Row Level Security ligado** e uma política do tipo
 `auth.uid() = user_id` — sem isso, qualquer pessoa com a chave anon conseguiria
 ler a tabela inteira de todo mundo. Não é opcional aqui.
 
+## Fluxo de navegação (Pressel → login → hub → produto)
+
+```
+tapedrill.com (Pressel, site público)
+   ↓ qualquer CTA
+tapedrill.com/login/ (autenticação)
+   ↓ login validado
+tapedrill.com/inicio/ (hub de produtos)
+   ↓ escolhe TapeDrill → escolhe dificuldade
+tapedrill.com/simulador-vwap.html (a ferramenta)
+```
+
+O hub em `/inicio/` é onde produtos futuros entram (ex: "Trilha de Aprendizagem",
+hoje mostrado como card desativado "Em breve"). Cada produto pode ter sua própria
+lógica de configuração antes de entrar — no caso do TapeDrill, é a escolha de
+dificuldade, salva em `localStorage` (`simvwap_dificuldade`) antes de navegar
+pro simulador, que já lê esse valor sozinho.
+
 ## Como funciona hoje
 
 - Sem login: tudo continua salvando no `localStorage`, exatamente como antes.
 - Com login: diário (`trades`) e configurações (`configuracoes`) sincronizam
   com a nuvem — ao entrar, os dados da nuvem substituem o que estava local;
   ao sair, volta a mostrar o que está salvo neste navegador.
-- A tabela `progresso` (fases do currículo, casos do Modo Exame) já existe
-  no banco mas **ainda não está conectada** — próximo passo planejado.
+- A tabela `progresso` já está conectada: cada caso concluído do Modo Exame
+  salva uma linha (`tipo:'caso_exame'`), usada na tela "Minha conta" pra
+  mostrar quantos dos 4 casos já foram feitos.
 
 ## Onde estão as credenciais
 

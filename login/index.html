@@ -117,7 +117,7 @@ const SUPABASE_URL = 'https://atmmupzdcjtyncvnxlie.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0bW11cHpkY2p0eW5jdm54bGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MzY4ODUsImV4cCI6MjEwMjIxMjg4NX0.LC4WpfayOqOfVb6v9RSOeJIj2Za1_NOyG7P3sUd-3a8';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const NEXT_URL = new URL('../simulador-vwap.html', window.location.href).href;
+const NEXT_URL = new URL('../inicio/', window.location.href).href;
 
 function setAuthMsg(msg,isErr){
   const el=$('#authMsg'); if(!el)return;

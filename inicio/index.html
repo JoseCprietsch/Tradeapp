@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<!--
+  PÁGINA: Início / hub de produtos (/inicio/)
+  O QUE É: primeira tela depois do login validado. Mostra os produtos
+  disponíveis (hoje: TapeDrill). Ao escolher TapeDrill, pede o nível de
+  dificuldade antes de entrar no simulador — essa escolha fica salva em
+  localStorage (chave simvwap_dificuldade) e o próprio simulador já lê
+  esse valor sozinho (é a mesma chave usada no seletor de dificuldade
+  de dentro do app, em "Minha conta").
+  Produtos futuros (ex: Trilha de Aprendizagem) entram aqui como novos
+  cards — reaproveitam esse mesmo hub, não precisam de página própria.
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Início — TapeDrill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --ink:#090B10; --panel:#10141C; --panel2:#161B26; --text:#EDEFF4; --muted:#8B93A6; --faint:#4E5668;
+  --gold:#D9A441; --sell:#F2495C; --buy:#2ECC8F; --line:#212837; --line-soft:#1A2030;
+  --font-ui:'EB Garamond', Georgia, serif;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+body{
+  background:var(--ink); color:var(--text); font-family:var(--font-ui); min-height:100vh;
+  background-image:
+    radial-gradient(1100px 620px at 82% -10%, #14161c 0%, transparent 60%),
+    radial-gradient(900px 560px at -10% 108%, #101216 0%, transparent 55%);
+}
+a{color:inherit}
+.wrap{max-width:920px; margin:0 auto; padding:0 24px}
+header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:22px 24px; border-bottom:1px solid var(--line-soft);
+}
+.brand{display:flex; align-items:center; gap:8px; font-weight:700; font-size:16px; text-decoration:none}
+.brand .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.head-right{display:flex; align-items:center; gap:14px; font-size:13px; color:var(--muted)}
+.head-right button{
+  background:transparent; border:1px solid var(--line); color:var(--muted);
+  padding:7px 14px; border-radius:8px; font-family:var(--font-ui); font-size:12.5px; cursor:pointer;
+}
+.head-right button:hover{border-color:var(--gold); color:var(--text)}
+
+.hero{padding:56px 0 40px; text-align:center}
+.hero .eyebrow{font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--gold); margin-bottom:14px}
+.hero h1{font-size:clamp(28px,4vw,40px); font-weight:700; margin-bottom:12px}
+.hero p{font-size:15px; font-style:italic; color:var(--muted); max-width:48ch; margin:0 auto}
+
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:20px; padding-bottom:64px}
+@media (max-width:720px){ .grid{grid-template-columns:1fr} }
+
+.prod-card{
+  background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:28px;
+  cursor:pointer; transition:border-color .15s, transform .15s; text-align:left; position:relative;
+}
+.prod-card:hover{border-color:var(--gold); transform:translateY(-2px)}
+.prod-card.disabled{cursor:not-allowed; opacity:.55}
+.prod-card.disabled:hover{border-color:var(--line); transform:none}
+.prod-badge{
+  position:absolute; top:20px; right:20px; font-size:10px; text-transform:uppercase; letter-spacing:.5px;
+  background:var(--panel2); border:1px solid var(--line); color:var(--faint); padding:4px 9px; border-radius:20px;
+}
+.prod-icon{width:44px; height:44px; border-radius:11px; background:linear-gradient(145deg,#1a1d24,#0c0d11); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:20px; margin-bottom:16px}
+.prod-card h2{font-size:19px; font-weight:700; margin-bottom:8px}
+.prod-card p{font-size:13.5px; color:var(--muted); line-height:1.55}
+
+/* ---- seleção de dificuldade (aparece depois de clicar em TapeDrill) ---- */
+#difStep{display:none; padding:12px 0 64px}
+#difStep .back{font-size:12.5px; color:var(--faint); text-decoration:none; display:inline-block; margin-bottom:24px}
+#difStep .back:hover{color:var(--text)}
+#difStep h2{font-size:22px; font-weight:700; margin-bottom:8px}
+#difStep > p{font-size:14px; font-style:italic; color:var(--muted); margin-bottom:28px}
+.dif-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+@media (max-width:720px){ .dif-grid{grid-template-columns:1fr} }
+.dif-card{
+  background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:22px;
+  cursor:pointer; text-align:left; transition:border-color .15s, transform .15s;
+}
+.dif-card:hover{border-color:var(--gold); transform:translateY(-2px)}
+.dif-card b{display:block; font-size:16px; margin-bottom:8px}
+.dif-card span{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px}
+.dif-card p{font-size:12.5px; color:var(--muted); line-height:1.55}
+.dif-card.ini span{color:var(--buy)}
+.dif-card.int span{color:var(--gold)}
+.dif-card.trd span{color:var(--sell)}
+
+#loading{min-height:100vh; display:flex; align-items:center; justify-content:center; color:var(--faint); font-size:13px}
+</style>
+</head>
+<body>
+
+<div id="loading">Verificando sua sessão…</div>
+
+<div id="content" style="display:none">
+  <header>
+    <a href="/" class="brand"><span class="dot"></span>TapeDrill</a>
+    <div class="head-right">
+      <span id="userEmail"></span>
+      <button id="btnSair">Sair</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div id="hubStep">
+      <div class="hero">
+        <div class="eyebrow">o que você quer treinar hoje?</div>
+        <h1>Escolha um produto</h1>
+        <p>Cada ferramenta treina uma parte diferente do processo — comece pela que fizer mais sentido agora.</p>
+      </div>
+
+      <div class="grid">
+        <div class="prod-card" id="cardTapeDrill">
+          <div class="prod-icon">📈</div>
+          <h2>TapeDrill</h2>
+          <p>Simulador de pregão sintético — treine leitura de fluxo, rejeições no VWAP e disciplina de risco, com 3 níveis de dificuldade.</p>
+        </div>
+
+        <div class="prod-card disabled" id="cardTrilha">
+          <div class="prod-badge">Em breve</div>
+          <div class="prod-icon">🎓</div>
+          <h2>Trilha de Aprendizagem</h2>
+          <p>O currículo completo, passo a passo — da estatística básica até gestão de risco avançada, com validação de competência em cada fase.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="difStep">
+      <a href="#" class="back" id="btnVoltarHub">← Voltar pros produtos</a>
+      <h2>Qual nível de dificuldade?</h2>
+      <p>Dá pra mudar isso depois, dentro do simulador em "Minha conta".</p>
+      <div class="dif-grid">
+        <div class="dif-card ini" data-dif="iniciante">
+          <b>Iniciante</b><span>mais fácil</span>
+          <p>Pregões sintéticos com padrões mais claros, menos ruído, catalisadores suaves e sempre avisados com antecedência.</p>
+        </div>
+        <div class="dif-card int" data-dif="intermediario">
+          <b>Intermediário</b><span>realista</span>
+          <p>Comportamento de mercado real, catalisadores avisados — o nível padrão pra quem já entendeu o básico.</p>
+        </div>
+        <div class="dif-card trd" data-dif="trader">
+          <b>Trader</b><span>sem ajuda</span>
+          <p>Volatilidade real, setups que nem sempre valem a entrada, catalisadores sem aviso — igual operar de verdade.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const SUPABASE_URL = 'https://atmmupzdcjtyncvnxlie.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0bW11cHpkY2p0eW5jdm54bGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MzY4ODUsImV4cCI6MjEwMjIxMjg4NX0.LC4WpfayOqOfVb6v9RSOeJIj2Za1_NOyG7P3sUd-3a8';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const LOGIN_URL = new URL('../login/', window.location.href).href;
+const TAPEDRILL_URL = new URL('../simulador-vwap.html', window.location.href).href;
+
+(async function init(){
+  try{
+    const {data:{session}} = await sb.auth.getSession();
+    if(!session){ window.location.href = LOGIN_URL; return; }
+    $('#userEmail').textContent = session.user.email;
+    $('#loading').style.display='none';
+    $('#content').style.display='block';
+  }catch(err){
+    console.error('[TapeDrill] Falha ao verificar sessão:', err);
+    window.location.href = LOGIN_URL;
+  }
+})();
+
+$('#btnSair').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  window.location.href = LOGIN_URL;
+});
+
+$('#cardTapeDrill').addEventListener('click', ()=>{
+  $('#hubStep').style.display='none';
+  $('#difStep').style.display='block';
+});
+$('#btnVoltarHub').addEventListener('click', e=>{
+  e.preventDefault();
+  $('#difStep').style.display='none';
+  $('#hubStep').style.display='block';
+});
+document.querySelectorAll('.dif-card').forEach(card=>{
+  card.addEventListener('click', ()=>{
+    localStorage.setItem('simvwap_dificuldade', card.dataset.dif);
+    window.location.href = TAPEDRILL_URL;
+  });
+});
+</script>
+</body>
+</html>
