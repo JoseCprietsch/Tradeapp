@@ -400,6 +400,16 @@
       </div>
 
       <div class="account-section">
+        <h3>Dificuldade</h3>
+        <p style="margin-bottom:10px">Muda o pregão sintético e a ajuda que você recebe — quanto maior, mais parecido com operar de verdade.</p>
+        <div class="account-theme" id="difBtns">
+          <button class="theme-btn" data-dif="iniciante">Iniciante</button>
+          <button class="theme-btn" data-dif="intermediario">Intermediário</button>
+          <button class="theme-btn" data-dif="trader">Trader</button>
+        </div>
+      </div>
+
+      <div class="account-section">
         <h3>Aparência</h3>
         <div class="account-theme">
           <button class="theme-btn" id="btnThemeDark" data-theme="dark">🌙 Escuro</button>
@@ -442,6 +452,14 @@
   </section>
 
   <aside class="side">
+    <div class="card" id="calendarCard" style="display:none">
+      <div class="gate-head">
+        <h2 style="padding:0">Calendário do pregão</h2>
+        <span id="calendarNivel" style="font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px"></span>
+      </div>
+      <div class="acc-body" id="calendarBody" style="padding:12px 16px 16px"></div>
+    </div>
+
     <div class="card" id="examPanel">
       <h2>Modo Exame</h2>
       <div class="body">
@@ -685,7 +703,7 @@ function iniciarModoExame(ligar){
   $('.gate').style.display = modoExame?'none':'block';
   $('#btnNovo').style.display = modoExame?'none':'inline-flex';
   $('#btnCsv').style.display = modoExame?'none':'inline-flex';
-  if(modoExame){ casoIdx=0; carregarCaso(0); }
+  if(modoExame){ $('#calendarCard').style.display='none'; casoIdx=0; carregarCaso(0); }
   else { novoPregao(); }
 }
 function carregarCaso(i){
@@ -738,7 +756,15 @@ $('#btnVerContinuacao').addEventListener('click',()=>{
 $('#btnProxCaso').addEventListener('click',()=>{ casoIdx++; carregarCaso(casoIdx); });
 
 /* ============ gerador de pregão sintético ============ */
-function gerarPregao(seed){
+function gerarPregao(seed, nivel){
+  nivel = nivel || dificuldade || 'intermediario';
+  // ajustes por nível: força de reversão ao VWAP, ruído, chance de troca de regime, catalisadores
+  const cfg = {
+    iniciante:     {pull:0.10, volMul:0.70, chaveTroca:0.006, evChance:0.40, evBoostMin:3, evBoostMax:6},
+    intermediario: {pull:0.06, volMul:1.00, chaveTroca:0.012, evChance:0.55, evBoostMin:5, evBoostMax:11},
+    trader:        {pull:0.03, volMul:1.35, chaveTroca:0.020, evChance:0.70, evBoostMin:6, evBoostMax:15}
+  }[nivel] || {pull:0.06, volMul:1.00, chaveTroca:0.012, evChance:0.55, evBoostMin:5, evBoostMax:11};
+
   const rnd = mulberry32(seed);
   const N=420; // 10:00–16:59, 1 min
   let base = 12 + rnd()*38;                    // preço entre ~12 e ~50
@@ -746,30 +772,30 @@ function gerarPregao(seed){
   const arr=[]; let px=base, cumPV=0, cumV=0;
   let regime = rnd()<0.5?'range':'tend';
   let drift = (rnd()-0.5)*0.0006;
-  let vol = 0.0009 + rnd()*0.0012;
+  let vol = (0.0009 + rnd()*0.0012)*cfg.volMul;
 
   // catalisadores macro: 0-2 eventos em índices aleatórios, nunca muito perto do início/fim
   const evs=[];
-  const nEv = rnd()<0.55 ? (rnd()<0.25?2:1) : 0;
+  const nEv = rnd()<cfg.evChance ? (rnd()<0.25?2:1) : 0;
   for(let e=0;e<nEv;e++){
     let idx, tries=0;
     do{ idx = 50+Math.floor(rnd()*(N-100)); tries++; } while(evs.some(ev=>Math.abs(ev.idx-idx)<70) && tries<20);
-    evs.push({idx, label: rnd()<0.5?'Dado macro (juros/inflação)':'Resultado/notícia relevante', boost:5+rnd()*6});
+    evs.push({idx, label: rnd()<0.5?'Dado macro (juros/inflação)':'Resultado/notícia relevante', boost:cfg.evBoostMin+rnd()*(cfg.evBoostMax-cfg.evBoostMin)});
   }
   evs.sort((a,b)=>a.idx-b.idx);
   let evAtivoIdx=-1, evRestante=0;
 
   for(let i=0;i<N;i++){
-    if(rnd()<0.012 && evRestante===0){
+    if(rnd()<cfg.chaveTroca && evRestante===0){
       regime = regime==='range'?'tend':'range';
       drift = (rnd()-0.5)*(regime==='tend'?0.0018:0.0005);
-      vol = 0.0008 + rnd()*(regime==='tend'?0.0018:0.0010);
+      vol = (0.0008 + rnd()*(regime==='tend'?0.0018:0.0010))*cfg.volMul;
     }
     const evAqui = evs.find(e=>e.idx===i);
     if(evAqui){ evAtivoIdx=evs.indexOf(evAqui); evRestante=14; }
     const t = new Date(dia); t.setHours(10,0,0,0); t.setMinutes(i);
     const vwapPrev = cumV>0 ? cumPV/cumV : px;
-    const rev = regime==='range' ? (vwapPrev-px)/px*0.06 : (vwapPrev-px)/px*0.008;
+    const rev = regime==='range' ? (vwapPrev-px)/px*cfg.pull : (vwapPrev-px)/px*(cfg.pull*0.13);
     let volEff=vol, driftEff=drift;
     if(evRestante>0){
       const evObj=evs[evAtivoIdx];
@@ -828,6 +854,7 @@ let criterios = JSON.parse(localStorage.getItem(CRIT_KEY)||'null') || [
 ];
 let editandoCrit=false;
 let preferencias = {}; // flags do usuário salvas na nuvem (ex: já viu o onboarding?)
+let dificuldade = localStorage.getItem('simvwap_dificuldade') || 'intermediario';
 function renderCrit(){
   const ul=$('#critList'); ul.innerHTML='';
   criterios.forEach((c,i)=>{
@@ -1010,6 +1037,7 @@ $('#btnLive') && $('#btnLive').addEventListener('click',()=>{viewOffset=0;draw()
 /* ============ banner de catalisador ============ */
 function updEventBanner(){
   const b=$('#evBanner');
+  if(dificuldade==='trader'){b.style.display='none';return;} // Trader: sem ajuda, sem alerta
   if(!eventos.length||cursor===0){b.style.display='none';return;}
   const prox = eventos.find(e=>e.idx>=cursor-1);
   if(!prox){b.style.display='none';return;}
@@ -1258,6 +1286,35 @@ $('#btnExport').addEventListener('click',()=>{
 });
 
 /* ============ novo pregão / csv ============ */
+/* ============ calendário do pregão (checklist de catalisadores antes de operar) ============ */
+function fmtHoraIdx(idx){
+  const t=new Date(); t.setHours(10,0,0,0); t.setMinutes(idx);
+  return t.toTimeString().slice(0,5);
+}
+function renderCalendario(){
+  const card=$('#calendarCard'), body=$('#calendarBody'), nivelEl=$('#calendarNivel');
+  const nomes={iniciante:'Iniciante',intermediario:'Intermediário',trader:'Trader'};
+  nivelEl.textContent = nomes[dificuldade]||'';
+  if(dificuldade==='trader'){ card.style.display='none'; return; } // Trader: sem checklist, sem ajuda
+  card.style.display='block';
+  if(!eventos.length){
+    body.innerHTML = `<div style="font-size:12.5px;color:var(--muted);line-height:1.5">Nenhum evento de calendário nesse pregão — dia mais limpo pra operar normalmente, mas confira sempre antes de entrar.</div>`;
+    return;
+  }
+  body.innerHTML = eventos.map(e=>{
+    const hora=fmtHoraIdx(e.idx);
+    const de=fmtHoraIdx(Math.max(0,e.idx-15)), ate=fmtHoraIdx(e.idx+15);
+    return `<div style="padding:10px 0;border-top:1px solid var(--border-soft)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+        <b style="font-size:13px">${hora}</b>
+        <span style="font-size:10px;color:var(--baixa);text-transform:uppercase;letter-spacing:.5px">alto impacto</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">${e.label}</div>
+      <div style="font-size:11.5px;color:var(--faint)">Janela de risco: evite operar entre ${de} e ${ate}</div>
+    </div>`;
+  }).join('') + `<div style="padding-top:10px;font-size:11px;color:var(--faint);line-height:1.5">Antes de operar: dá pra operar normal, com cautela redobrada, ou é melhor não operar hoje?</div>`;
+}
+
 function novoPregao(){
   pause();pos=null;
   const g=gerarPregao(Math.floor(Math.random()*1e9));
@@ -1266,6 +1323,7 @@ function novoPregao(){
   $('#inStop').value='';$('#inAlvo').value='';$('#inEmocional').value='';
   document.querySelectorAll('#critList input[type=checkbox]').forEach(cb=>cb.checked=false);
   updTicker();updPos();atualizarGate();draw();
+  renderCalendario();
 }
 $('#btnNovo').addEventListener('click',novoPregao);
 $('#btnCsv').addEventListener('click',()=>$('#fileCsv').click());
@@ -1404,7 +1462,7 @@ $('#btnOnboardOk') && $('#btnOnboardOk').addEventListener('click', markOnboarded
 /* ============ painel "Minha conta" ============ */
 function applyTheme(theme){
   document.documentElement.setAttribute('data-theme', theme==='light' ? 'light' : 'dark');
-  document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('active', b.dataset.theme===theme));
+  document.querySelectorAll('.theme-btn[data-theme]').forEach(b=>b.classList.toggle('active', b.dataset.theme===theme));
   localStorage.setItem('simvwap_theme', theme);
 }
 function setTheme(theme){
@@ -1416,6 +1474,22 @@ $('#btnThemeDark').addEventListener('click', ()=>setTheme('dark'));
 $('#btnThemeLight').addEventListener('click', ()=>setTheme('light'));
 // aplica o tema salvo assim que a página carrega (antes mesmo do login resolver)
 applyTheme(localStorage.getItem('simvwap_theme') || 'dark');
+
+function applyDificuldadeUI(){
+  document.querySelectorAll('#difBtns .theme-btn').forEach(b=>b.classList.toggle('active', b.dataset.dif===dificuldade));
+}
+function setDificuldade(nivel){
+  dificuldade = nivel;
+  localStorage.setItem('simvwap_dificuldade', nivel);
+  applyDificuldadeUI();
+  preferencias = {...preferencias, dificuldade: nivel};
+  if(currentUser) cloudSaveConfigDebounced();
+  renderCalendario();
+}
+document.querySelectorAll('#difBtns .theme-btn').forEach(b=>{
+  b.addEventListener('click', ()=>setDificuldade(b.dataset.dif));
+});
+applyDificuldadeUI();
 
 async function refreshAccountStats(){
   if(!currentUser) return;
@@ -1441,6 +1515,7 @@ function openAccountModal(){
   $('#accEmail').textContent = currentUser?.email || '—';
   renderProviders();
   refreshAccountStats();
+  applyDificuldadeUI();
   $('#accSenhaMsg').textContent=''; $('#accDangerMsg').textContent='';
   $('#accountModal').style.display='flex';
 }
@@ -1509,6 +1584,7 @@ async function loadCloudData(){
       }
       preferencias = cfg.preferencias || {};
       if(preferencias.theme) applyTheme(preferencias.theme);
+      if(preferencias.dificuldade){ dificuldade=preferencias.dificuldade; localStorage.setItem('simvwap_dificuldade',dificuldade); applyDificuldadeUI(); }
       updRisco();
       if(!preferencias.onboarded) showOnboarding();
     } else {
