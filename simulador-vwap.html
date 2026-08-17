@@ -114,6 +114,51 @@
   .onboard-links{display:flex; flex-direction:column; gap:6px; margin-bottom:20px}
   .onboard-links a{font-size:12.5px; color:var(--vwap); text-decoration:none}
   .onboard-links a:hover{text-decoration:underline}
+
+  /* ---- painel "Minha conta" ---- */
+  #accountModal{
+    position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
+    background:#050608CC; backdrop-filter:blur(3px); padding:20px; overflow-y:auto;
+  }
+  .account-card{
+    width:100%; max-width:440px; background:var(--panel-solid); border:1px solid var(--border);
+    border-radius:16px; padding:24px 24px 26px; box-shadow:0 30px 60px -20px #000000A0;
+    animation:onboardIn .3s cubic-bezier(.16,1,.3,1) both; max-height:88vh; overflow-y:auto;
+    display:flex; flex-direction:column; gap:18px;
+  }
+  .account-head{display:flex; justify-content:space-between; align-items:flex-start}
+  .account-head h2{font-size:19px; font-weight:700; margin-bottom:4px}
+  .account-email{font-size:12.5px; color:var(--muted); font-family:var(--font-mono)}
+  .account-close{background:none; border:0; color:var(--faint); font-size:22px; line-height:1; cursor:pointer; padding:2px 6px}
+  .account-close:hover{color:var(--text)}
+  .account-section{border-top:1px solid var(--border-soft); padding-top:16px}
+  .account-section h3{font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--faint); margin-bottom:12px; font-weight:700}
+  .account-section p{font-size:12.5px; color:var(--muted); line-height:1.5; margin-bottom:12px}
+  .account-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+  .account-stat{background:var(--panel2); border:1px solid var(--border-soft); border-radius:10px; padding:12px 10px; text-align:center}
+  .account-stat b{display:block; font-size:18px; color:var(--vwap); margin-bottom:2px}
+  .account-stat span{font-size:10.5px; color:var(--faint); line-height:1.3; display:block}
+  .account-theme{display:flex; gap:8px}
+  .theme-btn{flex:1; background:var(--panel2); border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:10px; font-size:13px; cursor:pointer}
+  .theme-btn.active{border-color:var(--vwap); color:var(--text); background:#D9A44122}
+  .account-providers{display:flex; flex-direction:column; gap:8px}
+  .account-provider{display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 12px; font-size:13px}
+  .account-provider .dot{width:7px;height:7px;border-radius:50%;background:#2ECC8F}
+  .account-msg{font-size:11.5px; color:var(--faint); margin-top:8px; line-height:1.5; min-height:14px}
+  .account-msg.err{color:#F2495C}
+  .account-msg.ok{color:#2ECC8F}
+  .account-section.danger p{color:#F2495C99}
+  .btn.ghost.danger{border-color:#F2495C55; color:#F2495C}
+  .btn.ghost.danger:hover{border-color:#F2495C; background:#F2495C11}
+
+  /* ---- tema claro ---- */
+  html[data-theme="light"]{
+    --bg:#F4F1EA; --panel:#FFFFFFCC; --panel-solid:#FFFFFF; --panel2:#EFEBE1;
+    --border:#DDD6C4; --border-soft:#E7E1D2;
+    --text:#1C1A14; --muted:#5C5748; --faint:#8A8470;
+  }
+  html[data-theme="light"] body{background:var(--bg)}
+  html[data-theme="light"] #ohlc{background:#FFFFFFDD; color:#1C1A14}
   .btn:disabled{opacity:.4;cursor:not-allowed}
   .speed{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
   .speed button{background:transparent;border:0;color:var(--muted);padding:8px 10px;font-family:var(--font-mono);font-size:12px}
@@ -327,6 +372,57 @@
     </div>
   </div>
 
+  <div id="accountModal" style="display:none">
+    <div class="account-card">
+      <div class="account-head">
+        <div>
+          <h2>Minha conta</h2>
+          <div class="account-email" id="accEmail">—</div>
+        </div>
+        <button class="account-close" id="btnFecharConta" aria-label="Fechar">×</button>
+      </div>
+
+      <div class="account-section">
+        <h3>Progresso</h3>
+        <div class="account-stats" id="accProgress">
+          <div class="account-stat"><b id="accCasos">0/4</b><span>casos do Modo Exame</span></div>
+          <div class="account-stat"><b id="accTrades">0</b><span>operações no diário</span></div>
+          <div class="account-stat"><b id="accWinRate">—</b><span>taxa de acerto</span></div>
+        </div>
+      </div>
+
+      <div class="account-section">
+        <h3>Aparência</h3>
+        <div class="account-theme">
+          <button class="theme-btn" id="btnThemeDark" data-theme="dark">🌙 Escuro</button>
+          <button class="theme-btn" id="btnThemeLight" data-theme="light">☀️ Claro</button>
+        </div>
+      </div>
+
+      <div class="account-section">
+        <h3>Contas conectadas</h3>
+        <div id="accProviders" class="account-providers"></div>
+      </div>
+
+      <div class="account-section">
+        <h3>Trocar senha</h3>
+        <div class="frow full"><div><span class="flabel">Nova senha</span><input type="password" id="accNewPass" placeholder="mínimo 6 caracteres"></div></div>
+        <button class="btn ghost" id="btnAccTrocarSenha" style="width:100%">Salvar nova senha</button>
+        <div id="accSenhaMsg" class="account-msg"></div>
+      </div>
+
+      <div class="account-section danger">
+        <h3>Zona de risco</h3>
+        <p>Apagar seus dados remove diário, configurações e progresso salvos na nuvem — não dá pra desfazer.</p>
+        <button class="btn ghost danger" id="btnApagarDados" style="width:100%">Apagar meus dados</button>
+        <button class="btn ghost danger" id="btnExcluirConta" style="width:100%;margin-top:8px">Excluir minha conta</button>
+        <div id="accDangerMsg" class="account-msg"></div>
+      </div>
+
+      <button class="btn primary" id="btnSair" style="width:100%">Sair</button>
+    </div>
+  </div>
+
   <section class="card" id="chartCard">
     <div id="chartWrap">
       <div id="ohlc"></div>
@@ -342,7 +438,7 @@
       <div class="body" style="padding:12px 16px">
         <div class="riskline"><span>Logado como</span><b id="authUserEmail">—</b></div>
         <div style="font-size:11px;color:var(--faint);margin:6px 0 10px;line-height:1.5">☁ Diário e configurações sincronizados na nuvem.</div>
-        <button class="btn ghost" id="btnSair" style="width:100%">Sair</button>
+        <button class="btn ghost" id="btnAbrirConta" style="width:100%">Minha conta</button>
       </div>
     </div>
 
@@ -629,6 +725,7 @@ $('#btnConfirmarExame').addEventListener('click',()=>{
   $('#btnConfirmarExame').disabled=true;
   $('#btnVerContinuacao').style.display='inline-block';
   $('#btnProxCaso').style.display= casoIdx<CASOS.length-1 ? 'inline-block':'none';
+  saveProgressoCaso(casoIdx, acertou);
 });
 $('#btnVerContinuacao').addEventListener('click',()=>{
   $('#btnVerContinuacao').style.display='none';
@@ -1268,6 +1365,15 @@ async function cloudDeleteAllTrades(){
   const {error}=await sb.from('trades').delete().eq('user_id',currentUser.id);
   if(error) console.warn('Falha ao limpar diário na nuvem:',error.message);
 }
+async function saveProgressoCaso(idx, acertou){
+  if(!currentUser) return;
+  const {error} = await sb.from('progresso').upsert({
+    user_id: currentUser.id, tipo:'caso_exame', chave:'caso_'+(idx+1),
+    status:'concluido', detalhe:{acertou}, updated_at:new Date().toISOString()
+  }, {onConflict:'user_id,tipo,chave'});
+  if(error) console.warn('Falha ao salvar progresso do caso:', error.message);
+}
+
 async function cloudSaveConfig(){
   if(!currentUser)return;
   const payload={
@@ -1296,6 +1402,97 @@ function markOnboarded(){
 }
 $('#btnOnboardOk') && $('#btnOnboardOk').addEventListener('click', markOnboarded);
 
+/* ============ painel "Minha conta" ============ */
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme==='light' ? 'light' : 'dark');
+  document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('active', b.dataset.theme===theme));
+  localStorage.setItem('simvwap_theme', theme);
+}
+function setTheme(theme){
+  applyTheme(theme);
+  preferencias = {...preferencias, theme};
+  if(currentUser) cloudSaveConfigDebounced();
+}
+$('#btnThemeDark').addEventListener('click', ()=>setTheme('dark'));
+$('#btnThemeLight').addEventListener('click', ()=>setTheme('light'));
+// aplica o tema salvo assim que a página carrega (antes mesmo do login resolver)
+applyTheme(localStorage.getItem('simvwap_theme') || 'dark');
+
+async function refreshAccountStats(){
+  if(!currentUser) return;
+  const {data:prog} = await sb.from('progresso').select('chave').eq('user_id',currentUser.id).eq('tipo','caso_exame');
+  $('#accCasos').textContent = (prog?.length||0)+'/4';
+  $('#accTrades').textContent = trades.length;
+  if(trades.length){
+    const wins = trades.filter(t=>t.res>0).length;
+    $('#accWinRate').textContent = Math.round(wins/trades.length*100)+'%';
+  } else {
+    $('#accWinRate').textContent = '—';
+  }
+}
+function renderProviders(){
+  const box=$('#accProviders'); if(!box || !currentUser) return;
+  const identities = currentUser.identities || [];
+  const names = {email:'Email e senha', google:'Google'};
+  box.innerHTML = identities.length
+    ? identities.map(id=>`<div class="account-provider"><span class="dot"></span>${names[id.provider]||id.provider}</div>`).join('')
+    : `<div class="account-provider"><span class="dot"></span>Email e senha</div>`;
+}
+function openAccountModal(){
+  $('#accEmail').textContent = currentUser?.email || '—';
+  renderProviders();
+  refreshAccountStats();
+  $('#accSenhaMsg').textContent=''; $('#accDangerMsg').textContent='';
+  $('#accountModal').style.display='flex';
+}
+$('#btnAbrirConta').addEventListener('click', openAccountModal);
+$('#btnFecharConta').addEventListener('click', ()=>{ $('#accountModal').style.display='none'; });
+$('#accountModal').addEventListener('click', e=>{ if(e.target.id==='accountModal') $('#accountModal').style.display='none'; });
+
+$('#btnAccTrocarSenha').addEventListener('click', async ()=>{
+  const pass = $('#accNewPass').value;
+  const msg = $('#accSenhaMsg');
+  if(pass.length<6){ msg.textContent='Mínimo 6 caracteres.'; msg.className='account-msg err'; return; }
+  msg.textContent='Salvando…'; msg.className='account-msg';
+  try{
+    const {error} = await sb.auth.updateUser({password:pass});
+    if(error){ msg.textContent=error.message; msg.className='account-msg err'; return; }
+    msg.textContent='Senha alterada com sucesso.'; msg.className='account-msg ok';
+    $('#accNewPass').value='';
+  }catch(err){
+    msg.textContent='Não consegui conectar ao servidor.'; msg.className='account-msg err';
+  }
+});
+
+$('#btnApagarDados').addEventListener('click', async ()=>{
+  if(!confirm('Isso apaga seu diário, configurações e progresso salvos na nuvem, sem volta. Continuar?')) return;
+  const msg=$('#accDangerMsg'); msg.textContent='Apagando…'; msg.className='account-msg';
+  try{
+    await sb.from('trades').delete().eq('user_id',currentUser.id);
+    await sb.from('progresso').delete().eq('user_id',currentUser.id);
+    await sb.from('configuracoes').delete().eq('user_id',currentUser.id);
+    trades=[]; saveTrades(); renderTrades();
+    preferencias={};
+    msg.textContent='Dados apagados.'; msg.className='account-msg ok';
+    refreshAccountStats();
+  }catch(err){
+    msg.textContent='Falha ao apagar: '+(err.message||''); msg.className='account-msg err';
+  }
+});
+$('#btnExcluirConta').addEventListener('click', async ()=>{
+  if(!confirm('Isso apaga todos os seus dados agora. Pra remover o cadastro em si (login), mandamos um pedido — sua conta fica sem poder logar até isso ser confirmado manualmente. Continuar?')) return;
+  const msg=$('#accDangerMsg');
+  try{
+    await sb.from('trades').delete().eq('user_id',currentUser.id);
+    await sb.from('progresso').delete().eq('user_id',currentUser.id);
+    await sb.from('configuracoes').delete().eq('user_id',currentUser.id);
+    msg.textContent='Dados apagados. Pra excluir o login em si, manda um email pra gente confirmando — ainda não temos exclusão automática de conta.';
+    msg.className='account-msg ok';
+  }catch(err){
+    msg.textContent='Falha: '+(err.message||''); msg.className='account-msg err';
+  }
+});
+
 async function loadCloudData(){
   const {data:cloudTrades,error:e1}=await sb.from('trades').select('*').order('created_at',{ascending:false});
   if(!e1 && cloudTrades){
@@ -1312,6 +1509,7 @@ async function loadCloudData(){
         criterios=cfg.criterios; localStorage.setItem(CRIT_KEY,JSON.stringify(criterios)); renderCrit();
       }
       preferencias = cfg.preferencias || {};
+      if(preferencias.theme) applyTheme(preferencias.theme);
       updRisco();
       if(!preferencias.onboarded) showOnboarding();
     } else {
