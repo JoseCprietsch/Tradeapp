@@ -75,6 +75,11 @@
   .ticker .var{font-family:var(--font-mono);font-size:13px}
   .ticker .vw{font-family:var(--font-mono);font-size:12px;color:var(--vwap)}
   .clock{font-family:var(--font-mono);font-size:13px;color:var(--muted)}
+  .saldo-badge{
+    font-family:var(--font-mono);font-size:13px;background:var(--panel2);
+    border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-weight:600;
+  }
+  .saldo-badge #saldoMeta{font-weight:400;font-size:11px;margin-left:6px}
   .clock b{color:var(--text);font-weight:600}
 
   .replay{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}
@@ -97,7 +102,7 @@
   .btn.exam.on{background:#7C5CFF;color:#0B0E14}
 
   /* ---- modal de boas-vindas (onboarding) ---- */
-  #onboardModal{
+  #onboardModal, #gameOverModal, #vitoriaModal{
     position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
     background:#050608CC; backdrop-filter:blur(3px); padding:20px;
   }
@@ -337,6 +342,9 @@
     <span class="var" id="tkVar">—</span>
     <span class="vw" id="tkVwap">VWAP —</span>
   </div>
+  <div class="saldo-badge" id="saldoBadge" title="Saldo da conta neste nível">
+    <span id="saldoValor">R$ 0,00</span><span id="saldoMeta" style="color:var(--faint)"></span>
+  </div>
   <div class="clock">Relógio do pregão: <b id="tkHora">—</b></div>
   <div class="replay">
     <button class="btn exam" id="btnExame" title="Casos desenhados à mão para testar sua leitura">Modo Exame</button>
@@ -360,6 +368,24 @@
 </div>
 
 <main id="appMain" style="display:none">
+
+  <div id="gameOverModal" style="display:none">
+    <div class="onboard-card" style="text-align:center">
+      <div style="font-size:34px;margin-bottom:8px">💀</div>
+      <h2 style="color:var(--baixa)">Conta zerada</h2>
+      <p id="gameOverTexto">Seu saldo chegou a zero (ou ficou negativo) neste nível. Isso é exatamente o que aconteceria numa conta real — só que aqui você pode reiniciar e tentar de novo.</p>
+      <button class="btn primary" id="btnReiniciarSaldo" style="width:100%">Reiniciar saldo e tentar de novo</button>
+    </div>
+  </div>
+
+  <div id="vitoriaModal" style="display:none">
+    <div class="onboard-card" style="text-align:center">
+      <div style="font-size:34px;margin-bottom:8px">🏆</div>
+      <h2 style="color:var(--alta)">Meta batida!</h2>
+      <p id="vitoriaTexto"></p>
+      <button class="btn primary" id="btnFecharVitoria" style="width:100%">Continuar operando</button>
+    </div>
+  </div>
 
   <div id="onboardModal" style="display:none">
     <div class="onboard-card">
@@ -911,6 +937,12 @@ let criterios = JSON.parse(localStorage.getItem(CRIT_KEY)||'null') || [
 let editandoCrit=false;
 let preferencias = {}; // flags do usuário salvas na nuvem (ex: já viu o onboarding?)
 let dificuldade = localStorage.getItem('simvwap_dificuldade') || 'intermediario';
+const NIVEL_CONFIG = {
+  iniciante:     {saldoInicial:10000, meta:20000},
+  intermediario: {saldoInicial:5000,  meta:10000},
+  trader:        {saldoInicial:1000,  meta:5000}
+};
+let saldos = JSON.parse(localStorage.getItem('simvwap_saldos')||'null') || {};
 function renderCrit(){
   const ul=$('#critList'); ul.innerHTML='';
   criterios.forEach((c,i)=>{
@@ -1179,13 +1211,12 @@ function setLado(l){lado=l;
   b.textContent=l==='buy'?'Enviar ordem de compra':'Enviar ordem de venda';
   updRisco();
 }
-const CAP_KEY='simvwap_capital', RISCO_KEY='simvwap_riscopct';
-$('#inCapital').value = localStorage.getItem(CAP_KEY)||1000;
+const RISCO_KEY='simvwap_riscopct';
+$('#inCapital').readOnly = true;
+$('#inCapital').title = 'Reflete seu saldo real neste nível — não é editável, muda conforme suas operações fecham.';
 $('#inRiscoPct').value = localStorage.getItem(RISCO_KEY)||1;
-['inQtd','inStop','inAlvo','inCapital','inRiscoPct'].forEach(id=>$('#'+id).addEventListener('input',()=>{
-  if(id==='inCapital')localStorage.setItem(CAP_KEY,$('#inCapital').value);
-  if(id==='inRiscoPct')localStorage.setItem(RISCO_KEY,$('#inRiscoPct').value);
-  if((id==='inCapital'||id==='inRiscoPct') && currentUser) cloudSaveConfigDebounced();
+['inQtd','inStop','inAlvo','inRiscoPct'].forEach(id=>$('#'+id).addEventListener('input',()=>{
+  if(id==='inRiscoPct'){ localStorage.setItem(RISCO_KEY,$('#inRiscoPct').value); if(currentUser) cloudSaveConfigDebounced(); }
   updRisco();
 }));
 function updRisco(){
@@ -1308,6 +1339,9 @@ function fecharPos(saida,motivo){
   });
   sessaoTrades.push({res,r});
   pos=null;updPos();draw();
+  saldos[dificuldade] = saldos[dificuldade] || {saldo:NIVEL_CONFIG[dificuldade].saldoInicial, venceu:false};
+  saldos[dificuldade].saldo = getSaldoAtual()+res;
+  persistirSaldos(); renderSaldoBadge(); checarFimDeJogo();
 }
 
 /* ============ diário ============ */
@@ -1462,6 +1496,7 @@ function novoPregao(){
   sessaoTrades=[];
   updateTTVisibility();
   updateBoletaRealismo();
+  renderSaldoBadge();
   updTicker();updPos();atualizarGate();draw();
   renderCalendario();
 }
@@ -1575,7 +1610,6 @@ async function cloudSaveConfig(){
   if(!currentUser)return;
   const payload={
     user_id:currentUser.id,
-    capital_total:+$('#inCapital').value||1000,
     risco_pct:+$('#inRiscoPct').value||1,
     criterios: criterios,
     preferencias: preferencias,
@@ -1625,6 +1659,56 @@ function updateBoletaRealismo(){
   $('#boletaPedagogica').style.display = real?'none':'block';
   $('#boletaPedagogica2').style.display = real?'none':'block';
 }
+
+/* ============ saldo persistente por nível (jogo de banca) ============ */
+function getSaldoAtual(nivel){
+  nivel = nivel || dificuldade;
+  if(!saldos[nivel]) saldos[nivel] = {saldo: NIVEL_CONFIG[nivel].saldoInicial, venceu:false};
+  return saldos[nivel].saldo;
+}
+function persistirSaldos(){
+  localStorage.setItem('simvwap_saldos', JSON.stringify(saldos));
+  preferencias = {...preferencias, saldos};
+  if(currentUser) cloudSaveConfigDebounced();
+}
+function renderSaldoBadge(){
+  const cfg=NIVEL_CONFIG[dificuldade];
+  const saldo=getSaldoAtual();
+  const el=$('#saldoValor');
+  el.textContent='Saldo: '+fmtBRL(saldo);
+  el.style.color = saldo<=0?'var(--baixa)':(saldo>=cfg.meta?'var(--alta)':'var(--text)');
+  $('#saldoMeta').textContent='meta '+fmtBRL(cfg.meta);
+  // reflete o saldo real no campo Capital total (não é mais editável livremente)
+  const inCap=$('#inCapital');
+  if(inCap){ inCap.value=Math.max(0,saldo).toFixed(2); }
+}
+function reiniciarSaldo(nivel){
+  nivel = nivel || dificuldade;
+  saldos[nivel] = {saldo: NIVEL_CONFIG[nivel].saldoInicial, venceu: saldos[nivel]?.venceu||false};
+  persistirSaldos();
+  renderSaldoBadge();
+}
+function checarFimDeJogo(){
+  const cfg=NIVEL_CONFIG[dificuldade], saldo=getSaldoAtual();
+  if(saldo<=0){
+    $('#gameOverTexto').textContent = `Seu saldo no nível ${nomeNivel(dificuldade)} chegou a ${fmtBRL(saldo)}. Isso é exatamente o que aconteceria numa conta real — só que aqui você pode reiniciar e tentar de novo, quantas vezes precisar.`;
+    $('#gameOverModal').style.display='flex';
+    return true;
+  }
+  if(saldo>=cfg.meta && !saldos[dificuldade].venceu){
+    saldos[dificuldade].venceu=true; persistirSaldos();
+    $('#vitoriaTexto').textContent = `Você levou o saldo do nível ${nomeNivel(dificuldade)} de ${fmtBRL(cfg.saldoInicial)} até ${fmtBRL(saldo)} — bateu a meta de ${fmtBRL(cfg.meta)}. Pode continuar treinando aqui, ou subir de nível pra um desafio maior.`;
+    $('#vitoriaModal').style.display='flex';
+  }
+  return false;
+}
+function nomeNivel(n){ return {iniciante:'Iniciante',intermediario:'Intermediário',trader:'Trader'}[n]||n; }
+$('#btnReiniciarSaldo').addEventListener('click', ()=>{
+  reiniciarSaldo(dificuldade);
+  $('#gameOverModal').style.display='none';
+});
+$('#btnFecharVitoria').addEventListener('click', ()=>{ $('#vitoriaModal').style.display='none'; });
+
 function setDificuldade(nivel){
   dificuldade = nivel;
   localStorage.setItem('simvwap_dificuldade', nivel);
@@ -1634,6 +1718,7 @@ function setDificuldade(nivel){
   renderCalendario();
   updateTTVisibility();
   updateBoletaRealismo();
+  renderSaldoBadge();
   atualizarGate();
 }
 document.querySelectorAll('#difBtns .theme-btn').forEach(b=>{
@@ -1727,7 +1812,6 @@ async function loadCloudData(){
   const {data:cfg,error:e2}=await sb.from('configuracoes').select('*').eq('user_id',currentUser.id).maybeSingle();
   if(!e2){
     if(cfg){
-      if(cfg.capital_total!=null){$('#inCapital').value=cfg.capital_total;localStorage.setItem(CAP_KEY,cfg.capital_total);}
       if(cfg.risco_pct!=null){$('#inRiscoPct').value=cfg.risco_pct;localStorage.setItem(RISCO_KEY,cfg.risco_pct);}
       if(Array.isArray(cfg.criterios)&&cfg.criterios.length){
         criterios=cfg.criterios; localStorage.setItem(CRIT_KEY,JSON.stringify(criterios)); renderCrit();
@@ -1735,6 +1819,8 @@ async function loadCloudData(){
       preferencias = cfg.preferencias || {};
       if(preferencias.theme) applyTheme(preferencias.theme);
       if(preferencias.dificuldade){ dificuldade=preferencias.dificuldade; localStorage.setItem('simvwap_dificuldade',dificuldade); applyDificuldadeUI(); updateBoletaRealismo(); }
+      if(preferencias.saldos){ saldos=preferencias.saldos; localStorage.setItem('simvwap_saldos',JSON.stringify(saldos)); }
+      renderSaldoBadge();
       updRisco();
       if(!preferencias.onboarded) showOnboarding();
     } else {
@@ -1746,7 +1832,8 @@ async function loadCloudData(){
 }
 function resetToLocal(){
   trades=JSON.parse(localStorage.getItem(DK)||'[]'); renderTrades();
-  $('#inCapital').value=localStorage.getItem(CAP_KEY)||1000;
+  saldos=JSON.parse(localStorage.getItem('simvwap_saldos')||'null')||{};
+  renderSaldoBadge();
   $('#inRiscoPct').value=localStorage.getItem(RISCO_KEY)||1;
   criterios=JSON.parse(localStorage.getItem(CRIT_KEY)||'null')||criterios;
   renderCrit(); updRisco();
