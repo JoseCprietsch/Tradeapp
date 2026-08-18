@@ -357,6 +357,9 @@
       <button data-s="1" class="on">1x</button><button data-s="2">2x</button>
       <button data-s="4">4x</button><button data-s="8">8x</button><button data-s="16">16x</button>
     </div>
+    <div class="speed" id="tfBox">
+      <button data-tf="1" class="on">1min</button><button data-tf="5">5min</button><button data-tf="15">15min</button>
+    </div>
     <progress id="prog" max="1" value="0"></progress>
   </div>
   <button id="btnAbrirConta" class="gear-btn" title="Minha conta" aria-label="Minha conta">⚙</button>
@@ -698,6 +701,24 @@ let candles=[];       // {t:Date, o,h,l,c,v, vwap, evento?}
 let eventos=[];        // [{idx,label}] catalisadores macro do pregão atual
 let cursor=0;          // quantos candles já revelados
 let viewOffset=0;      // quantos candles "pra trás" do cursor a janela visível está (arraste no gráfico)
+let timeframe=1;       // minutos por candle exibido (1, 5 ou 15) — só afeta o desenho, o jogo continua rodando minuto a minuto
+function agregarCandles(raw, tf){
+  if(tf<=1) return raw;
+  const out=[];
+  for(let i=0;i<raw.length;i+=tf){
+    const g=raw.slice(i,i+tf);
+    if(!g.length) continue;
+    out.push({
+      t:g[0].t, o:g[0].o, c:g[g.length-1].c,
+      h:Math.max(...g.map(k=>k.h)), l:Math.min(...g.map(k=>k.l)),
+      v:g.reduce((s,k)=>s+k.v,0), vwap:g[g.length-1].vwap,
+      evento:g.map(k=>k.evento).find(Boolean)||null,
+      ticks:g.flatMap(k=>k.ticks||[])
+    });
+  }
+  return out;
+}
+function candlesParaExibicao(){ return timeframe>1 ? agregarCandles(candles.slice(0,cursor), timeframe) : candles; }
 let playing=false, speed=1, timer=null;
 let lado='buy';
 let pos=null;          // {lado, qtd, entrada, stop, alvo, tIn, idxIn, emocional, criterios[]}
@@ -1076,12 +1097,13 @@ function draw(){
   const padR=62, padB=42, volH=70;
   const chH=H-padB-volH-8, chW=W-padR;
   const bw=6, gap=2, per=bw+gap;
+  const candlesAgg=candlesParaExibicao(), cursorAgg=candlesAgg.length;
   const visN=Math.floor(chW/per);
-  const maxOffset=Math.max(0,cursor-visN);
+  const maxOffset=Math.max(0,cursorAgg-visN);
   viewOffset=Math.min(Math.max(0,viewOffset),maxOffset);
-  const end=cursor-viewOffset;
+  const end=cursorAgg-viewOffset;
   const start=Math.max(0,end-visN);
-  const view=candles.slice(start,end);
+  const view=candlesAgg.slice(start,end);
   if(!view.length) return; // proteção extra: nada pra desenhar nesse recorte
   let lo=Infinity,hi=-Infinity,vMax=0;
   view.forEach(k=>{lo=Math.min(lo,k.l,k.vwap);hi=Math.max(hi,k.h,k.vwap);vMax=Math.max(vMax,k.v)});
@@ -1110,7 +1132,7 @@ function draw(){
   }
   // eixo tempo
   ctx.textAlign='center';
-  for(let i=0;i<view.length;i+=Math.ceil(60/1)){
+  for(let i=0;i<view.length;i+=Math.ceil(60/timeframe)){
     const k=view[i];
     ctx.fillText(k.t.toTimeString().slice(0,5),x(start+i)+bw/2,H-padB+16);
   }
@@ -1163,8 +1185,9 @@ function draw(){
 
   // marcadores de catalisador macro
   eventos.forEach(ev=>{
-    if(ev.idx<start||ev.idx>=cursor+60||ev.idx>=candles.length)return;
-    const evx=x(ev.idx)+bw/2;
+    const evIdxAgg=Math.floor(ev.idx/timeframe);
+    if(evIdxAgg<start||ev.idx>=cursor+60||ev.idx>=candles.length)return;
+    const evx=x(evIdxAgg)+bw/2;
     ctx.setLineDash([4,3]);ctx.strokeStyle='#7C5CFF';ctx.beginPath();
     ctx.moveTo(evx,0);ctx.lineTo(evx,chH+8+volH);ctx.stroke();ctx.setLineDash([]);
     ctx.save();ctx.translate(evx-4,10);ctx.rotate(0);
@@ -1187,8 +1210,8 @@ function draw(){
   }
 
   // crosshair
-  if(hoverIdx>=start&&hoverIdx<cursor){
-    const k=candles[hoverIdx],cx=x(hoverIdx)+bw/2;
+  if(hoverIdx>=start&&hoverIdx<cursorAgg){
+    const k=candlesAgg[hoverIdx],cx=x(hoverIdx)+bw/2;
     ctx.strokeStyle='#3A476388';ctx.setLineDash([3,3]);
     ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,chH+8+volH);ctx.stroke();ctx.setLineDash([]);
     const d=(k.c-k.vwap)/k.vwap*100;
@@ -1214,7 +1237,8 @@ cv.addEventListener('pointermove', e=>{
   }
   const r=cv.getBoundingClientRect();
   const chW=cv.clientWidth-62,visN=Math.floor(chW/per);
-  const end=cursor-viewOffset, start=Math.max(0,end-visN);
+  const cursorAgg=candlesParaExibicao().length;
+  const end=cursorAgg-viewOffset, start=Math.max(0,end-visN);
   hoverIdx=start+Math.floor((e.clientX-r.left-2)/per);draw();
 });
 cv.addEventListener('pointerup', ()=>{dragging=false});
@@ -1287,6 +1311,12 @@ $('#speedBox').addEventListener('click',e=>{
   speed=+b.dataset.s;
   document.querySelectorAll('#speedBox button').forEach(x=>x.classList.toggle('on',x===b));
   if(playing)play();
+});
+$('#tfBox').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  timeframe=+b.dataset.tf;
+  document.querySelectorAll('#tfBox button').forEach(x=>x.classList.toggle('on',x===b));
+  viewOffset=0; hoverIdx=-1; draw();
 });
 document.addEventListener('keydown',e=>{
   if(e.target.matches('input,textarea,select'))return;
