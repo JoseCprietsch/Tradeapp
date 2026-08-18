@@ -713,7 +713,6 @@ function iniciarModoExame(ligar){
   $('#btnExame').classList.toggle('on', modoExame);
   $('#examPanel').style.display = modoExame?'block':'none';
   $('#cardOrdem').style.display = modoExame?'none':'block';
-  $('.gate').style.display = modoExame?'none':'block';
   $('#btnNovo').style.display = modoExame?'none':'inline-flex';
   $('#btnCsv').style.display = modoExame?'none':'inline-flex';
   if(modoExame){ $('#calendarCard').style.display='none'; updateTTVisibility(); casoIdx=0; carregarCaso(0); }
@@ -900,6 +899,12 @@ function critMarcados(){
   return [...document.querySelectorAll('#critList input[type=checkbox]')].map(cb=>cb.checked);
 }
 function atualizarGate(){
+  const gateAtivo = dificuldade==='iniciante';
+  $('#gateCard').style.display = (gateAtivo && !modoExame) ? '' : 'none';
+  if(!gateAtivo){
+    $('#btnOrdem').disabled = !!pos || cursor===0;
+    return;
+  }
   const marks=critMarcados();
   const ok = !editandoCrit && marks.length>0 && marks.every(Boolean);
   document.querySelectorAll('#critList li').forEach((li,i)=>li.classList.toggle('ok',!!marks[i]));
@@ -1546,6 +1551,7 @@ function setDificuldade(nivel){
   if(currentUser) cloudSaveConfigDebounced();
   renderCalendario();
   updateTTVisibility();
+  atualizarGate();
 }
 document.querySelectorAll('#difBtns .theme-btn').forEach(b=>{
   b.addEventListener('click', ()=>setDificuldade(b.dataset.dif));
