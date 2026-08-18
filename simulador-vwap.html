@@ -517,29 +517,33 @@
           <div><span class="flabel">Stop (distância de risco, em R$)</span><input type="number" id="inStop" step="0.01" min="0"></div>
           <div><span class="flabel">Alvo (distância de ganho, em R$)</span><input type="number" id="inAlvo" step="0.01" min="0"></div>
         </div>
-        <div class="frow">
-          <div><span class="flabel">Capital total (R$)</span><input type="number" id="inCapital" value="1000" min="0" step="50"></div>
-          <div><span class="flabel">Risco por op. (%)</span><input type="number" id="inRiscoPct" value="1" min="0.1" step="0.1"></div>
+        <div id="boletaPedagogica">
+          <div class="frow">
+            <div><span class="flabel">Capital total (R$)</span><input type="number" id="inCapital" value="1000" min="0" step="50"></div>
+            <div><span class="flabel">Risco por op. (%)</span><input type="number" id="inRiscoPct" value="1" min="0.1" step="0.1"></div>
+          </div>
+          <div class="riskline"><span>Qtd sugerida pelo risco</span><b id="rQtdSug">—</b></div>
         </div>
-        <div class="riskline"><span>Qtd sugerida pelo risco</span><b id="rQtdSug">—</b></div>
         <div class="frow">
           <div><span class="flabel">Quantidade</span><input type="number" id="inQtd" value="100" min="1" step="100"></div>
           <div><span class="flabel">Entrada (últ. preço)</span><input type="text" id="inEntrada" disabled></div>
         </div>
-        <button class="btn ghost" id="btnUsarSug" style="width:100%;margin-bottom:10px;padding:6px;font-size:12px">Usar quantidade sugerida</button>
-        <div class="riskline"><span>Risco</span><b id="rRisco">—</b></div>
-        <div class="riskline"><span>Ganho no alvo</span><b id="rGanho">—</b></div>
-        <div class="riskline"><span>Relação R:R</span><b id="rRR">—</b></div>
-        <div class="frow full">
-          <div><span class="flabel">Estado emocional antes de entrar</span>
-            <select id="inEmocional">
-              <option value="">selecione (1 a 5)</option>
-              <option value="1">1 — ansioso / impulsivo</option>
-              <option value="2">2</option>
-              <option value="3">3 — neutro</option>
-              <option value="4">4</option>
-              <option value="5">5 — calmo / confiante</option>
-            </select>
+        <div id="boletaPedagogica2">
+          <button class="btn ghost" id="btnUsarSug" style="width:100%;margin-bottom:10px;padding:6px;font-size:12px">Usar quantidade sugerida</button>
+          <div class="riskline"><span>Risco</span><b id="rRisco">—</b></div>
+          <div class="riskline"><span>Ganho no alvo</span><b id="rGanho">—</b></div>
+          <div class="riskline"><span>Relação R:R</span><b id="rRR">—</b></div>
+          <div class="frow full">
+            <div><span class="flabel">Estado emocional antes de entrar</span>
+              <select id="inEmocional">
+                <option value="">selecione (1 a 5)</option>
+                <option value="1">1 — ansioso / impulsivo</option>
+                <option value="2">2</option>
+                <option value="3">3 — neutro</option>
+                <option value="4">4</option>
+                <option value="5">5 — calmo / confiante</option>
+              </select>
+            </div>
           </div>
         </div>
         <button class="btn buy" id="btnOrdem" disabled>Enviar ordem</button>
@@ -1213,7 +1217,7 @@ $('#btnOrdem').addEventListener('click',()=>{
   const emo=$('#inEmocional').value;
   const px=candles[cursor-1].c, dir=lado==='buy'?1:-1;
   if(!q||!stD||!alD)return alert('Preencha quantidade, stop e alvo.');
-  if(!emo)return alert('Selecione seu estado emocional antes de entrar — isso faz parte do processo.');
+  if(dificuldade!=='trader' && !emo)return alert('Selecione seu estado emocional antes de entrar — isso faz parte do processo.');
   if(stD<=0||alD<=0)return alert('Stop e Alvo precisam ser distâncias positivas (ex: '+fmt(px*0.008)+'), a partir do preço de entrada — não preço final, nem valor negativo.');
   if(stD/px>0.15||alD/px>0.35)return alert('Essa distância é grande demais pra uma operação intraday.\n\nStop e Alvo esperam a distância em reais a partir da entrada (ex: stop '+fmt(px*0.008)+', alvo '+fmt(px*0.015)+'), não o preço final de saída.');
   const st = px - dir*stD, al = px + dir*alD;
@@ -1457,6 +1461,7 @@ function novoPregao(){
   ttFeed=[]; pushTicksDoCandle(0);
   sessaoTrades=[];
   updateTTVisibility();
+  updateBoletaRealismo();
   updTicker();updPos();atualizarGate();draw();
   renderCalendario();
 }
@@ -1613,6 +1618,13 @@ applyTheme(localStorage.getItem('simvwap_theme') || 'dark');
 function applyDificuldadeUI(){
   document.querySelectorAll('#difBtns .theme-btn').forEach(b=>b.classList.toggle('active', b.dataset.dif===dificuldade));
 }
+function updateBoletaRealismo(){
+  // Trader: só o que existe numa boleta de verdade. Sem calculadora de risco,
+  // sem sugestão de quantidade, sem check-in emocional — isso são muletas nossas.
+  const real = dificuldade==='trader';
+  $('#boletaPedagogica').style.display = real?'none':'block';
+  $('#boletaPedagogica2').style.display = real?'none':'block';
+}
 function setDificuldade(nivel){
   dificuldade = nivel;
   localStorage.setItem('simvwap_dificuldade', nivel);
@@ -1621,6 +1633,7 @@ function setDificuldade(nivel){
   if(currentUser) cloudSaveConfigDebounced();
   renderCalendario();
   updateTTVisibility();
+  updateBoletaRealismo();
   atualizarGate();
 }
 document.querySelectorAll('#difBtns .theme-btn').forEach(b=>{
@@ -1721,7 +1734,7 @@ async function loadCloudData(){
       }
       preferencias = cfg.preferencias || {};
       if(preferencias.theme) applyTheme(preferencias.theme);
-      if(preferencias.dificuldade){ dificuldade=preferencias.dificuldade; localStorage.setItem('simvwap_dificuldade',dificuldade); applyDificuldadeUI(); }
+      if(preferencias.dificuldade){ dificuldade=preferencias.dificuldade; localStorage.setItem('simvwap_dificuldade',dificuldade); applyDificuldadeUI(); updateBoletaRealismo(); }
       updRisco();
       if(!preferencias.onboarded) showOnboarding();
     } else {
