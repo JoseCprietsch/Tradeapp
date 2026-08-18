@@ -372,6 +372,15 @@
 
 <main id="appMain" style="display:none">
 
+  <div id="fimPregaoModal" style="display:none">
+    <div class="onboard-card" style="text-align:center">
+      <div style="font-size:34px;margin-bottom:8px">🔔</div>
+      <h2>Pregão encerrado</h2>
+      <p id="fimPregaoTexto">O pregão sintético chegou ao fim (16:59).</p>
+      <button class="btn primary" id="btnProximoPregao" style="width:100%">Gerar próximo pregão</button>
+    </div>
+  </div>
+
   <div id="gameOverModal" style="display:none">
     <div class="onboard-card" style="text-align:center">
       <div style="font-size:34px;margin-bottom:8px">💀</div>
@@ -753,6 +762,7 @@ let lado='buy';
 let pos=null;          // {lado, qtd, entrada, stop, alvo, tIn, idxIn, emocional, criterios[]}
 let tipoOrdem='mercado'; // 'mercado' | 'limitada' | 'stop'
 let ordemPendente=null;  // {tipo, lado, gatilho, qtd, stD, alD, emo, criterios[]} — aguardando o preço bater
+let fimPregaoMostrado=false;
 let sessaoTrades=[];   // trades fechados no pregão atual (zera a cada novo pregão)
 let sym='TRN4';
 
@@ -1319,9 +1329,21 @@ function updTicker(){
 function step(){
   if(modoExame && !decidido) return; // bloqueia avanço até responder o caso
   if(cursor>=candles.length){
-    if(pos){ fecharPos(candles[candles.length-1].c, 'pregão'); }
-    if(ordemPendente){ ordemPendente=null; renderPendente(); }
-    pause();return;
+    pause();
+    if(fimPregaoMostrado) return; // já avisou, não repete a cada clique extra
+    fimPregaoMostrado=true;
+    let texto='O pregão sintético chegou ao fim (16:59).';
+    if(pos){
+      const precoFinal=candles[candles.length-1].c;
+      const res=fecharPos(precoFinal, 'pregão');
+      texto+=` Sua posição foi encerrada automaticamente no fechamento — é a regra real de day trade, sem posição overnight. Resultado: ${fmtBRL(res)}.`;
+    } else {
+      texto+=' Você não tinha posição aberta.';
+    }
+    if(ordemPendente){ ordemPendente=null; renderPendente(); texto+=' A ordem pendente que não disparou foi cancelada.'; }
+    $('#fimPregaoTexto').textContent=texto;
+    $('#fimPregaoModal').style.display='flex';
+    return;
   }
   cursor++;
   pushTicksDoCandle(cursor-1);
@@ -1329,6 +1351,10 @@ function step(){
   checarSaida();
   updTicker();draw();
 }
+$('#btnProximoPregao').addEventListener('click',()=>{
+  $('#fimPregaoModal').style.display='none';
+  novoPregao();
+});
 function play(){
   if(modoExame && !decidido) return;
   if(!candles.length||cursor>=candles.length)return;
@@ -1554,6 +1580,7 @@ function fecharPos(saida,motivo){
   saldos[dificuldade] = saldos[dificuldade] || {saldo:NIVEL_CONFIG[dificuldade].saldoInicial, venceu:false};
   saldos[dificuldade].saldo = getSaldoAtual()+res;
   persistirSaldos(); renderSaldoBadge(); checarFimDeJogo();
+  return res;
 }
 
 /* ============ diário ============ */
@@ -1731,6 +1758,7 @@ function renderGrade(){
 function selecionarAtivo(idx){
   if(pos) return alert('Zere a posição aberta antes de trocar de ativo — cada operação fica só num ativo por vez, igual numa boleta real.');
   ordemPendente=null; renderPendente();
+  fimPregaoMostrado=false;
   ativoAtivoIdx=idx;
   const a=mercado[idx];
   candles=a.candles; eventos=a.eventos; sym=a.ticker;
@@ -1805,6 +1833,7 @@ function renderBook(){
 function novoPregao(){
   pause();pos=null;
   ordemPendente=null; renderPendente();
+  fimPregaoMostrado=false;
   mercado=gerarDia(Math.floor(Math.random()*1e9), dificuldade);
   ativoAtivoIdx=0;
   const a=mercado[0];
