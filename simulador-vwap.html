@@ -718,7 +718,10 @@ function agregarCandles(raw, tf){
   }
   return out;
 }
-function candlesParaExibicao(){ return timeframe>1 ? agregarCandles(candles.slice(0,cursor), timeframe) : candles; }
+function candlesParaExibicao(){
+  const revelados=candles.slice(0,cursor);
+  return timeframe>1 ? agregarCandles(revelados, timeframe) : revelados;
+}
 let playing=false, speed=1, timer=null;
 let lado='buy';
 let pos=null;          // {lado, qtd, entrada, stop, alvo, tIn, idxIn, emocional, criterios[]}
