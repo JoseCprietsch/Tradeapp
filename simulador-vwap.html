@@ -630,7 +630,7 @@
           <tr><td>Alvo</td><td id="posAlvo"></td></tr>
           <tr><td>Quantidade</td><td id="posQtd"></td></tr>
         </table>
-        <button class="btn" id="btnFechar" style="width:100%;margin-top:10px">Encerrar a mercado</button>
+        <button class="btn primary" id="btnFechar" style="width:100%;margin-top:10px">Zerar posição (a mercado, agora)</button>
       </div>
     </div>
   </aside>
@@ -1192,7 +1192,10 @@ function updTicker(){
 /* ============ replay ============ */
 function step(){
   if(modoExame && !decidido) return; // bloqueia avanço até responder o caso
-  if(cursor>=candles.length){pause();return;}
+  if(cursor>=candles.length){
+    if(pos){ fecharPos(candles[candles.length-1].c, 'pregão'); }
+    pause();return;
+  }
   cursor++;
   pushTicksDoCandle(cursor-1);
   checarSaida();
