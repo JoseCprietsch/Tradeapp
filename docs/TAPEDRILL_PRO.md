@@ -71,7 +71,8 @@ Notícias, SuperDOM.
 
 ```
 gerarDia(seed, nivel)
-  → ativos[]: 6-10 tickers sintéticos com setor, cada um com seu
+  → ativos[]: 6-10 empresas fictícias com ticker/nome/setor fixos
+    (banco de ~12 empresas, sorteia 6-10 por dia), cada uma com seu
     próprio gerarPregao (seeds derivados) — uns em tendência, uns
     laterais, uns com catalisador. SÓ ALGUNS têm setup válido no dia
     (treina a seleção: a maioria dos dias/ativos NÃO vale operar)
@@ -80,7 +81,33 @@ gerarDia(seed, nivel)
       ticks: negócios sintéticos por candle {hora, preço, qtd, agressor}
       bookSnapshot(idx): níveis de oferta derivados de vol/volume
       manchetes: catalisadores viram notícias com horário
+      iceberg: null ou {preco, qtdVisivel} — ver abaixo
 ```
+
+### Empresas fictícias (evolução da Grade de Cotações)
+
+Banco fixo de ~12 empresas fictícias (nome + ticker + setor), pra dar
+identidade e repetição — a pessoa passa a "conhecer" os papéis ao longo
+do tempo, como um trader real conhece os ativos que acompanha. Cada dia
+sorteia 6-10 delas pra aparecer na Grade.
+
+### Estratégia Iceberg (ordem institucional escondida)
+
+Uma ordem grande (ex: 50.000 ações) que só mostra uma fatia pequena no
+book (ex: 2.000) — quando essa fatia é consumida pelos negócios, ela
+"reaparece" no mesmo preço, revelando aos poucos que existe uma mão
+grande por trás. Implementação: um nível do book marcado como iceberg
+tem sua quantidade **reabastecida** sempre que os ticks do candle
+consomem volume suficiente naquele preço — ao contrário dos outros
+níveis, que apenas oscilam aleatoriamente.
+
+**Presente em todos os níveis, mas com sutileza diferente:**
+
+| Nível | Como aparece |
+|---|---|
+| Iniciante | Existe, e a interface **avisa explicitamente** ("essa oferta está sendo reabastecida — pode ser ordem institucional grande escondida") |
+| Intermediário | Existe, sem aviso — mas o padrão de reabastecimento é bem regular/óbvio pra quem prestar atenção |
+| Trader | Existe, sem aviso, com variação natural na quantidade reabastecida — bem mais difícil de distinguir de ruído normal do book |
 
 ## Ordem de implementação (v2)
 
