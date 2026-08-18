@@ -981,7 +981,16 @@ function draw(){
   if(!view.length) return; // proteção extra: nada pra desenhar nesse recorte
   let lo=Infinity,hi=-Infinity,vMax=0;
   view.forEach(k=>{lo=Math.min(lo,k.l,k.vwap);hi=Math.max(hi,k.h,k.vwap);vMax=Math.max(vMax,k.v)});
-  if(pos){lo=Math.min(lo,pos.stop,pos.alvo);hi=Math.max(hi,pos.stop,pos.alvo);}
+  if(pos){
+    // stop/alvo entram na escala do eixo, mas com um teto de extensão —
+    // evita que um valor absurdo (bug ou entrada errada) esmague os candles
+    const cap=((hi-lo)||(hi*0.05)||1)*6;
+    [pos.stop,pos.alvo].forEach(p=>{
+      if(!(p>0)) return;
+      lo=Math.min(lo, Math.max(p, lo-cap));
+      hi=Math.max(hi, Math.min(p, hi+cap));
+    });
+  }
   const pad=(hi-lo)*0.06||0.5; lo-=pad;hi+=pad;
   const y=p=>chH-( (p-lo)/(hi-lo) )*chH+4;
   const x=i=>(i-start)*per+2;
@@ -1208,6 +1217,8 @@ $('#btnOrdem').addEventListener('click',()=>{
   const px=candles[cursor-1].c, dir=lado==='buy'?1:-1;
   if(!q||!st||!al)return alert('Preencha quantidade, stop e alvo.');
   if(!emo)return alert('Selecione seu estado emocional antes de entrar — isso faz parte do processo.');
+  if(st<=0||al<=0)return alert('Stop e Alvo precisam ser preços positivos (ex: '+fmt(px)+'), não podem ser negativos ou zero.');
+  if(Math.abs(st-px)/px>0.35||Math.abs(al-px)/px>0.35)return alert('Esse valor está longe demais do preço atual ('+fmt(px)+').\n\nStop e Alvo esperam o preço de saída, próximo do preço de entrada — ex: stop '+fmt(px*0.985)+', alvo '+fmt(px*1.02)+'.');
   if((px-st)*dir<=0)return alert((lado==='buy'?'Para compra, o stop precisa estar abaixo do preço.':'Para venda, o stop precisa estar acima do preço.')+'\n\nOs campos Stop e Alvo esperam o preço de saída (ex: '+fmt(px*0.985)+'), não uma distância em pontos ou reais.');
   if((al-px)*dir<=0)return alert((lado==='buy'?'Para compra, o alvo precisa estar acima do preço.':'Para venda, o alvo precisa estar abaixo do preço.')+'\n\nOs campos Stop e Alvo esperam o preço de saída (ex: '+fmt(px*1.02)+'), não uma distância em pontos ou reais.');
   pos={lado,qtd:q,entrada:px,stop:st,alvo:al,tIn:candles[cursor-1].t,idxIn:cursor-1,
