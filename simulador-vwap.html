@@ -1251,6 +1251,8 @@ $('#btnOrdem').addEventListener('click',()=>{
   if(dificuldade!=='trader' && !emo)return alert('Selecione seu estado emocional antes de entrar — isso faz parte do processo.');
   if(stD<=0||alD<=0)return alert('Stop e Alvo precisam ser distâncias positivas (ex: '+fmt(px*0.008)+'), a partir do preço de entrada — não preço final, nem valor negativo.');
   if(stD/px>0.15||alD/px>0.35)return alert('Essa distância é grande demais pra uma operação intraday.\n\nStop e Alvo esperam a distância em reais a partir da entrada (ex: stop '+fmt(px*0.008)+', alvo '+fmt(px*0.015)+'), não o preço final de saída.');
+  const valorPosicao=q*px, poderCompra=Math.max(0,getSaldoAtual())*5;
+  if(valorPosicao>poderCompra)return alert('Ordem rejeitada pela corretora simulada: essa posição custa '+fmtBRL(valorPosicao)+', mas seu poder de compra intraday é '+fmtBRL(poderCompra)+' (5x o saldo de '+fmtBRL(getSaldoAtual())+').\n\nReduza a quantidade.');
   const st = px - dir*stD, al = px + dir*alD;
   pos={lado,qtd:q,entrada:px,stop:st,alvo:al,tIn:candles[cursor-1].t,idxIn:cursor-1,
        emocional:emo,criterios:criterios.slice()};
@@ -1784,6 +1786,7 @@ $('#btnApagarDados').addEventListener('click', async ()=>{
     await sb.from('configuracoes').delete().eq('user_id',currentUser.id);
     trades=[]; saveTrades(); renderTrades();
     preferencias={};
+    saldos={}; localStorage.removeItem('simvwap_saldos'); renderSaldoBadge();
     msg.textContent='Dados apagados.'; msg.className='account-msg ok';
     refreshAccountStats();
   }catch(err){
@@ -1820,7 +1823,9 @@ async function loadCloudData(){
       }
       preferencias = cfg.preferencias || {};
       if(preferencias.theme) applyTheme(preferencias.theme);
-      if(preferencias.dificuldade){ dificuldade=preferencias.dificuldade; localStorage.setItem('simvwap_dificuldade',dificuldade); applyDificuldadeUI(); updateBoletaRealismo(); }
+      // dificuldade NÃO é restaurada da nuvem de propósito: a escolha feita no hub (/inicio/)
+      // grava no localStorage e deve sempre vencer — restaurar da nuvem sobrescreveria essa escolha.
+      preferencias = {...preferencias, dificuldade};
       if(preferencias.saldos){ saldos=preferencias.saldos; localStorage.setItem('simvwap_saldos',JSON.stringify(saldos)); }
       renderSaldoBadge();
       updRisco();

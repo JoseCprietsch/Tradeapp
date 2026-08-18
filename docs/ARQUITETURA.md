@@ -1,4 +1,4 @@
-# Arquitetura — Pregão de Treino
+# Arquitetura — TapeDrill
 
 Mapa de onde fica cada coisa neste repositório. Se você não sabe onde mexer, comece aqui.
 
@@ -6,54 +6,57 @@ Mapa de onde fica cada coisa neste repositório. Se você não sabe onde mexer, 
 
 ```
 Tradeapp/
-├── index.html              → Home do site
-├── cenarios.html            → Galeria dos 4 casos do Modo Exame
+├── index.html                → Pressel (site público de vendas)
+├── cenarios.html             → Galeria dos 4 casos do Modo Exame
 ├── metodo.html               → Texto sobre os princípios do método
+├── login/
+│   ├── index.html            → Login/cadastro (email+senha e Google)
+│   └── reset.html            → Redefinição de senha (destino do link por email)
+├── inicio/
+│   └── index.html            → Hub de produtos pós-login (escolha produto + dificuldade)
 ├── simulador-vwap.html       → O APP em si (simulador de pregão)
-├── assets/
-│   └── style.css             → Design system do site (não do simulador)
+├── assets/style.css          → Design system do site público (não do simulador)
 ├── supabase/
-│   └── schema.sql            → Script de criação das tabelas + RLS
+│   ├── schema.sql            → Criação das tabelas + RLS
+│   └── migration_001_*.sql   → Ajustes de tipos na tabela trades
 ├── docs/
-│   ├── ARQUITETURA.md         → este arquivo
-│   ├── CURRICULO.md           → as fases do curso, o que já foi feito
-│   └── SUPABASE.md            → guia de configuração da conta na nuvem
-└── README.md                 → visão geral rápida (o que qualquer visitante vê primeiro)
+│   ├── ARQUITETURA.md        → este arquivo
+│   ├── CURRICULO.md          → as fases do curso, o que já foi feito
+│   ├── SUPABASE.md           → configuração da nuvem + fluxo de navegação
+│   ├── TAPEDRILL_PRO.md      → plano das ferramentas profissionais (Book, T&T, VAP…)
+│   └── NIVEIS_DIFICULDADE.md → tudo que muda entre Iniciante/Intermediário/Trader
+├── CNAME                     → domínio customizado (tapedrill.com)
+└── README.md                 → visão geral rápida + navegação
 ```
 
-## Duas partes que não se misturam
+## Fluxo de navegação
 
-**1. O site (`index.html`, `cenarios.html`, `metodo.html` + `assets/style.css`)**
-Páginas de marketing/apresentação. Todas compartilham o mesmo `assets/style.css`.
-Se for mudar uma cor, fonte ou espaçamento do *site*, mexe só nesse arquivo.
+```
+tapedrill.com (Pressel) → /login/ → /inicio/ (hub) → /simulador-vwap.html
+```
 
-**2. O simulador (`simulador-vwap.html`)**
-Um único arquivo com HTML + CSS + JavaScript, sem build e sem dependências além
-das fontes do Google. Isso é proposital: continua funcionando mesmo se abrir
-localmente sem internet (exceto pelas fontes). O CSS dele é próprio (não usa
-`assets/style.css`), mas a paleta de cores foi alinhada manualmente pra combinar
-com o site — se mudar o dourado/verde/vermelho em um lugar, ajusta no outro também.
+Detalhes do fluxo e das tabelas: `docs/SUPABASE.md`.
 
-Dentro do `simulador-vwap.html`, o JavaScript é dividido em blocos marcados
-com comentários `/* ==== nome da seção ==== */`. Use Ctrl+F pelo nome pra pular
-direto — a lista completa está no comentário no topo do arquivo.
+## Três partes que não se misturam
+
+**1. O site público** (`index.html`, `cenarios.html`, `metodo.html` + `assets/style.css`)
+Tipografia: só EB Garamond. Se for mudar cor/fonte/espaçamento do site, mexe em `assets/style.css`.
+
+**2. As páginas de autenticação e o hub** (`login/`, `inicio/`)
+Páginas independentes, cada uma com CSS próprio embutido (alinhado manualmente à paleta do site). Falam com o Supabase.
+
+**3. O simulador** (`simulador-vwap.html`)
+Um único arquivo com HTML + CSS + JS. Dependências externas: supabase-js e Three.js
+(via CDN) + fontes do Google. O JS é dividido em blocos `/* ==== nome ==== */` —
+Ctrl+F pelo nome pra pular direto.
 
 ## Hospedagem
 
-O site inteiro é estático (nenhum servidor próprio) e roda via **GitHub Pages**,
-direto da branch `main`. Qualquer push pra `main` atualiza o site ao vivo em
-`https://josecprietsch.github.io/Tradeapp/` (leva 1-2 minutos pra propagar).
+Site estático no **GitHub Pages** (branch `main`), servido em **https://tapedrill.com**
+(domínio na Cloudflare, DNS apontando pro Pages). Push na `main` → ao vivo em 1-2 min.
 
-## Estado atual vs. planejado
+## Convenções
 
-| Peça | Status |
-|---|---|
-| Site (home, cenários, método) | ✅ no ar |
-| Simulador | ✅ no ar, acordeão mobile + gráfico arrastável |
-| Login por conta (Supabase Auth) | 🔲 planejado — ver `docs/SUPABASE.md` |
-| Diário/progresso salvos na nuvem | 🔲 depende do login acima |
-
-Quando o login for implementado, o simulador passa a ter dois modos:
-sem login (localStorage, como hoje) e logado (dados na nuvem, sincroniza entre
-dispositivos). O objetivo é não quebrar o uso sem conta — continua funcionando
-pra quem só quer treinar sem se cadastrar.
+- Commits em português, descritivos, direto na `main`
+- Antes de todo push: validar divs balanceados + `node --check` no JS extraído
+- Peças novas seguem a regra de níveis em `docs/NIVEIS_DIFICULDADE.md`
