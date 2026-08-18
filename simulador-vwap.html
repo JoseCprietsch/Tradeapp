@@ -499,6 +499,26 @@
       </div>
     </div>
 
+    <div class="card" id="bookCard" style="display:none">
+      <div class="gate-head">
+        <h2 style="padding:0">Book de Ofertas</h2>
+      </div>
+      <div style="padding:0 16px 14px">
+        <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:4px" id="bookPressaoBar">
+          <div id="bookPressaoCompra" style="background:var(--alta)"></div>
+          <div id="bookPressaoVenda" style="background:var(--baixa)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-bottom:10px;font-family:var(--font-mono)">
+          <span id="bookPctCompra">50%</span>
+          <span id="bookPctVenda">50%</span>
+        </div>
+        <div id="bookVenda" style="font-family:var(--font-mono);font-size:11.5px;display:flex;flex-direction:column-reverse;gap:1px;margin-bottom:6px"></div>
+        <div id="bookSpread" style="text-align:center;font-size:10.5px;color:var(--faint);padding:4px 0;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);margin-bottom:6px"></div>
+        <div id="bookCompra" style="font-family:var(--font-mono);font-size:11.5px;display:flex;flex-direction:column;gap:1px"></div>
+        <div style="font-size:10.5px;color:var(--faint);margin-top:10px;line-height:1.5">% do book sozinho não é pressão confirmada — só vira sinal quando bate com o Times &amp; Trades.</div>
+      </div>
+    </div>
+
     <div class="card" id="examPanel">
       <h2>Modo Exame</h2>
       <div class="body">
@@ -770,7 +790,7 @@ function iniciarModoExame(ligar){
   $('#cardSessao').style.display = modoExame?'none':'block';
   $('#btnNovo').style.display = modoExame?'none':'inline-flex';
   $('#btnCsv').style.display = modoExame?'none':'inline-flex';
-  if(modoExame){ $('#calendarCard').style.display='none'; updateTTVisibility(); casoIdx=0; carregarCaso(0); }
+  if(modoExame){ $('#calendarCard').style.display='none'; updateTTVisibility(); updateBookVisibility(); casoIdx=0; carregarCaso(0); }
   else { novoPregao(); }
 }
 function carregarCaso(i){
@@ -1485,6 +1505,56 @@ function pushTicksDoCandle(idx){
   if(!c || !c.ticks || !c.ticks.length) return;
   ttFeed = [...c.ticks].reverse().concat(ttFeed).slice(0, TT_MAX);
   if(ttVisivelNoNivel()) renderTT();
+  atualizarBook(c);
+}
+
+/* ============ Book de Ofertas (livro sintético) ============ */
+function bookVisivelNoNivel(){ return dificuldade==='trader'; } // só no Trader, por enquanto
+function updateBookVisibility(){
+  $('#bookCard').style.display = (bookVisivelNoNivel() && !modoExame) ? 'block' : 'none';
+}
+function gerarBookSnapshot(c){
+  // preço-base = fechamento do candle; a "casa" (tick) escala com o preço do ativo
+  const px=c.c, tick=Math.max(0.01, px*0.0009);
+  // viés: puxa levemente pro lado que dominou os últimos negócios do candle, mas com
+  // ruído suficiente pra não bater sempre com o Times & Trades — é essa a lição
+  const ticks=c.ticks||[];
+  const compradores=ticks.filter(t=>t.agressor==='comprador').length;
+  const viesCompra = ticks.length ? (compradores/ticks.length - 0.5) : 0;
+  const niveis=6, compra=[], venda=[];
+  for(let i=1;i<=niveis;i++){
+    const decai=1/(i*0.55+0.6);
+    const baseQ=200+Math.random()*2600;
+    const qC=Math.round(baseQ*decai*(1+viesCompra*0.6+Math.random()*0.5)/100)*100;
+    const qV=Math.round(baseQ*decai*(1-viesCompra*0.6+Math.random()*0.5)/100)*100;
+    compra.push({preco:px-tick*i, qtd:Math.max(100,qC)});
+    venda.push({preco:px+tick*i, qtd:Math.max(100,qV)});
+  }
+  return {compra,venda,spread:tick*2};
+}
+let bookAtual=null;
+function atualizarBook(c){
+  bookAtual = gerarBookSnapshot(c);
+  if(bookVisivelNoNivel()) renderBook();
+}
+function renderBook(){
+  if(!bookAtual) return;
+  const {compra,venda}=bookAtual;
+  const totC=compra.reduce((s,l)=>s+l.qtd,0), totV=venda.reduce((s,l)=>s+l.qtd,0);
+  const pctC=Math.round(totC/(totC+totV)*100), pctV=100-pctC;
+  $('#bookPressaoCompra').style.width=pctC+'%';
+  $('#bookPressaoVenda').style.width=pctV+'%';
+  $('#bookPctCompra').textContent=pctC+'% compradores';
+  $('#bookPctVenda').textContent=pctV+'% vendedores';
+  const maxQ=Math.max(...compra.map(l=>l.qtd),...venda.map(l=>l.qtd));
+  const linha=(l,cor)=>`<div style="position:relative;display:flex;justify-content:space-between;padding:2px 4px">
+    <div style="position:absolute;inset:0;background:${cor}1c;width:${Math.round(l.qtd/maxQ*100)}%"></div>
+    <span style="position:relative;color:${cor}">${fmt(l.preco)}</span>
+    <span style="position:relative;color:var(--muted)">${l.qtd.toLocaleString('pt-BR')}</span>
+  </div>`;
+  $('#bookVenda').innerHTML = venda.map(l=>linha(l,'var(--baixa)')).join('');
+  $('#bookCompra').innerHTML = compra.map(l=>linha(l,'var(--alta)')).join('');
+  $('#bookSpread').textContent = 'spread ≈ '+fmt(bookAtual.spread);
 }
 
 function novoPregao(){
@@ -1497,6 +1567,7 @@ function novoPregao(){
   ttFeed=[]; pushTicksDoCandle(0);
   sessaoTrades=[];
   updateTTVisibility();
+  updateBookVisibility();
   updateBoletaRealismo();
   renderSaldoBadge();
   updTicker();updPos();atualizarGate();draw();
@@ -1721,6 +1792,7 @@ function setDificuldade(nivel){
   if(currentUser) cloudSaveConfigDebounced();
   renderCalendario();
   updateTTVisibility();
+  updateBookVisibility();
   updateBoletaRealismo();
   renderSaldoBadge();
   atualizarGate();
