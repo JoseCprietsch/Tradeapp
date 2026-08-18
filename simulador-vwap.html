@@ -546,11 +546,34 @@
       </div>
     </div>
 
+    <div class="card" id="cardSessao">
+      <h2>Resultado do pregão</h2>
+      <div class="body" style="padding:12px 16px 16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="background:var(--panel2);border:1px solid var(--border-soft);border-radius:8px;padding:10px">
+            <div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Fechado</div>
+            <div id="sessaoFechadoRS" style="font-size:15px;font-weight:600;font-family:var(--font-mono)">R$ 0,00</div>
+            <div id="sessaoFechadoR" style="font-size:11px;color:var(--faint)">0,00 R</div>
+          </div>
+          <div style="background:var(--panel2);border:1px solid var(--border-soft);border-radius:8px;padding:10px">
+            <div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Em aberto</div>
+            <div id="sessaoAbertoRS" style="font-size:15px;font-weight:600;font-family:var(--font-mono)">—</div>
+            <div id="sessaoAbertoR" style="font-size:11px;color:var(--faint)">—</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-soft);font-size:12px;color:var(--muted)">
+          <span id="sessaoTrades">0 operações</span>
+          <span id="sessaoPct">0,00% do capital</span>
+        </div>
+      </div>
+    </div>
+
     <div class="card" id="cardPos" hidden>
       <h2>Posição aberta</h2>
       <div class="body pos">
         <div id="posLado"></div>
         <div class="big" id="posPnl">—</div>
+        <div id="posPnlR" style="font-size:12px;color:var(--faint);margin-top:-8px;margin-bottom:10px">—</div>
         <table>
           <tr><td>Entrada</td><td id="posEnt"></td></tr>
           <tr><td>Stop</td><td id="posStop"></td></tr>
@@ -620,6 +643,7 @@ let viewOffset=0;      // quantos candles "pra trás" do cursor a janela visíve
 let playing=false, speed=1, timer=null;
 let lado='buy';
 let pos=null;          // {lado, qtd, entrada, stop, alvo, tIn, idxIn, emocional, criterios[]}
+let sessaoTrades=[];   // trades fechados no pregão atual (zera a cada novo pregão)
 let sym='TRN4';
 
 /* ============ Modo Exame ============ */
@@ -713,13 +737,14 @@ function iniciarModoExame(ligar){
   $('#btnExame').classList.toggle('on', modoExame);
   $('#examPanel').style.display = modoExame?'block':'none';
   $('#cardOrdem').style.display = modoExame?'none':'block';
+  $('#cardSessao').style.display = modoExame?'none':'block';
   $('#btnNovo').style.display = modoExame?'none':'inline-flex';
   $('#btnCsv').style.display = modoExame?'none':'inline-flex';
   if(modoExame){ $('#calendarCard').style.display='none'; updateTTVisibility(); casoIdx=0; carregarCaso(0); }
   else { novoPregao(); }
 }
 function carregarCaso(i){
-  pause(); pos=null;
+  pause(); pos=null; sessaoTrades=[];
   const caso=CASOS[i];
   candles=scriptCandles(caso.passos, 30);
   eventos=(caso.eventos||[]).map(e=>({...e}));
@@ -1193,17 +1218,51 @@ $('#btnFechar').addEventListener('click',()=>{if(pos)fecharPos(candles[cursor-1]
 
 function updPos(){
   const card=$('#cardPos'),ordem=$('#cardOrdem');
-  if(!pos){card.hidden=true;ordem.style.opacity=1;atualizarGate();return;}
+  if(!pos){card.hidden=true;ordem.style.opacity=1;atualizarGate();renderSessao();return;}
   card.hidden=false;ordem.style.opacity=.45;
   const px=candles[cursor-1].c, dir=pos.lado==='buy'?1:-1;
   const pnl=(px-pos.entrada)*dir*pos.qtd;
+  const riscoUnit=Math.abs(pos.entrada-pos.stop);
+  const rAberto = riscoUnit>0 ? ((px-pos.entrada)*dir)/riscoUnit : 0;
   $('#posLado').innerHTML=pos.lado==='buy'
     ?'<span class="up">▲ COMPRADO</span>':'<span class="down">▼ VENDIDO</span>';
   const el=$('#posPnl');el.textContent=fmtBRL(pnl);el.className='big '+(pnl>=0?'up':'down');
+  const elR=$('#posPnlR'); elR.textContent=(rAberto>=0?'+':'')+rAberto.toFixed(2)+' R';
+  elR.style.color = rAberto>=0 ? 'var(--alta)' : 'var(--baixa)';
   $('#posEnt').textContent=fmt(pos.entrada);
   $('#posStop').textContent=fmt(pos.stop);
   $('#posAlvo').textContent=fmt(pos.alvo);
   $('#posQtd').textContent=pos.qtd.toLocaleString('pt-BR');
+  renderSessao();
+}
+/* ============ resultado do pregão (sessão atual) ============ */
+function renderSessao(){
+  const card=$('#cardSessao'); if(!card) return;
+  const fechados = sessaoTrades.reduce((s,t)=>s+t.res,0);
+  const fechadosR = sessaoTrades.reduce((s,t)=>s+t.r,0);
+  $('#sessaoFechadoRS').textContent = fmtBRL(fechados);
+  $('#sessaoFechadoRS').style.color = fechados>0?'var(--alta)':fechados<0?'var(--baixa)':'var(--text)';
+  $('#sessaoFechadoR').textContent = (fechadosR>=0?'+':'')+fechadosR.toFixed(2)+' R';
+
+  if(pos){
+    const px=candles[cursor-1].c, dir=pos.lado==='buy'?1:-1;
+    const abertoRS=(px-pos.entrada)*dir*pos.qtd;
+    const riscoUnit=Math.abs(pos.entrada-pos.stop);
+    const abertoR = riscoUnit>0 ? ((px-pos.entrada)*dir)/riscoUnit : 0;
+    $('#sessaoAbertoRS').textContent=fmtBRL(abertoRS);
+    $('#sessaoAbertoRS').style.color = abertoRS>0?'var(--alta)':abertoRS<0?'var(--baixa)':'var(--text)';
+    $('#sessaoAbertoR').textContent=(abertoR>=0?'+':'')+abertoR.toFixed(2)+' R';
+  } else {
+    $('#sessaoAbertoRS').textContent='—'; $('#sessaoAbertoRS').style.color='var(--text)';
+    $('#sessaoAbertoR').textContent='—';
+  }
+
+  const n=sessaoTrades.length;
+  $('#sessaoTrades').textContent = n===1?'1 operação':n+' operações';
+  const capital = +$('#inCapital').value || 1000;
+  const totalAberto = pos ? (candles[cursor-1].c-pos.entrada)*(pos.lado==='buy'?1:-1)*pos.qtd : 0;
+  const pct = capital>0 ? ((fechados+totalAberto)/capital*100) : 0;
+  $('#sessaoPct').textContent = (pct>=0?'+':'')+pct.toFixed(2)+'% do capital';
 }
 function checarSaida(){
   if(!pos)return;
@@ -1234,6 +1293,7 @@ function fecharPos(saida,motivo){
     emocional:pos.emocional, seguiuProcesso, pertoEvento,
     criterios:pos.criterios,nota:''
   });
+  sessaoTrades.push({res,r});
   pos=null;updPos();draw();
 }
 
@@ -1386,6 +1446,7 @@ function novoPregao(){
   $('#inStop').value='';$('#inAlvo').value='';$('#inEmocional').value='';
   document.querySelectorAll('#critList input[type=checkbox]').forEach(cb=>cb.checked=false);
   ttFeed=[]; pushTicksDoCandle(0);
+  sessaoTrades=[];
   updateTTVisibility();
   updTicker();updPos();atualizarGate();draw();
   renderCalendario();
