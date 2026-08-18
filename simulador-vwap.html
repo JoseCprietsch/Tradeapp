@@ -1115,6 +1115,28 @@ function draw(){
     ctx.fillText(k.t.toTimeString().slice(0,5),x(start+i)+bw/2,H-padB+16);
   }
 
+  // VAP — volume por faixa de preço, desenhado atrás dos candles (só no Trader, sem ajuda visual nos outros)
+  if(dificuldade==='trader'){
+    const nBuckets=22, buckets=new Array(nBuckets).fill(0);
+    view.forEach(k=>{
+      const tp=(k.h+k.l+k.c)/3;
+      let bi=Math.floor((tp-lo)/(hi-lo)*nBuckets);
+      bi=Math.max(0,Math.min(nBuckets-1,bi));
+      buckets[bi]+=k.v;
+    });
+    const vapMax=Math.max(...buckets,1), pocIdx=buckets.indexOf(vapMax);
+    const vapW=chW*0.28;
+    buckets.forEach((vb,bi)=>{
+      if(vb<=0) return;
+      const pTop=lo+(hi-lo)*(bi+1)/nBuckets, pBot=lo+(hi-lo)*bi/nBuckets;
+      const yTop=y(pTop), yBot=y(pBot);
+      ctx.fillStyle = bi===pocIdx ? '#D9A44140' : '#8B94A81c';
+      ctx.fillRect(0, yTop, vapW*(vb/vapMax), Math.max(1,yBot-yTop-1));
+    });
+    ctx.fillStyle='#D9A441';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
+    ctx.fillText('VAP · dourado = POC (maior volume)',4,14);
+  }
+
   // volume
   view.forEach((k,i)=>{
     const vx=x(start+i), vh=(k.v/vMax)*volH;
