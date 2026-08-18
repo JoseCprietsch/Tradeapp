@@ -1658,6 +1658,8 @@ function updateBoletaRealismo(){
   const real = dificuldade==='trader';
   $('#boletaPedagogica').style.display = real?'none':'block';
   $('#boletaPedagogica2').style.display = real?'none':'block';
+  $('#btnExame').style.display = real?'none':'inline-flex';
+  if(real && modoExame) iniciarModoExame(false); // Modo Exame é roteirizado/pedagógico — não existe no Trader
 }
 
 /* ============ saldo persistente por nível (jogo de banca) ============ */

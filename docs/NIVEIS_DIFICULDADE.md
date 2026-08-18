@@ -26,6 +26,7 @@ Ofertas, VAP, etc.) — a regra geral é sempre a mesma:
 | Alerta de catalisador (banner antes do evento) | ✅ Mostra | ✅ Mostra | ❌ Nunca mostra |
 | Painel "Calendário do pregão" (lista de eventos, janela de risco) | ✅ Visível | ✅ Visível | ❌ Escondido |
 | Gate de critérios (trava a ordem até marcar o checklist) | ✅ Ativo | ❌ Ordem livre | ❌ Ordem livre |
+| Modo Exame (casos roteirizados com gabarito) | ✅ Disponível | ✅ Disponível | ❌ Escondido — não existe roteiro numa tela real |
 | Times & Trades (fita de negócios) | ❌ Escondido | ✅ Visível | ✅ Visível |
 
 ## 3. Boleta — o que existe numa tela real vs. o que é pedagógico
@@ -47,7 +48,6 @@ essa conta de cabeça ou no papel — exatamente como na vida real.
 ## 4. O que é igual em todos os níveis (não muda)
 
 - Diário de operações (registro pós-trade, incluindo estado emocional e "seguiu o processo?") — é uma ferramenta de reflexão, não faz parte da execução em si, então continua existindo em todos os níveis, inclusive Trader
-- Modo Exame (casos roteirizados) — não depende de dificuldade, é um modo à parte
 - Formato Stop/Alvo como distância em R$ (não preço absoluto) — mudou pra todos os níveis de uma vez, é assim que funciona na vida real
 
 ---
