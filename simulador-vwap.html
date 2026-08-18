@@ -478,6 +478,13 @@
   </section>
 
   <aside class="side">
+    <div class="card" id="gradeCard" style="display:none">
+      <div class="gate-head">
+        <h2 style="padding:0">Grade de Cotações</h2>
+        <span style="font-size:10px;color:var(--faint)">escolha o ativo</span>
+      </div>
+      <div id="gradeBody" style="padding:0 16px 14px;max-height:280px;overflow-y:auto"></div>
+    </div>
     <div class="card" id="calendarCard" style="display:none">
       <div class="gate-head">
         <h2 style="padding:0">Calendário do pregão</h2>
@@ -515,6 +522,7 @@
         <div id="bookVenda" style="font-family:var(--font-mono);font-size:11.5px;display:flex;flex-direction:column-reverse;gap:1px;margin-bottom:6px"></div>
         <div id="bookSpread" style="text-align:center;font-size:10.5px;color:var(--faint);padding:4px 0;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);margin-bottom:6px"></div>
         <div id="bookCompra" style="font-family:var(--font-mono);font-size:11.5px;display:flex;flex-direction:column;gap:1px"></div>
+        <div id="bookIceAviso" style="display:none;font-size:11px;color:var(--vwap);background:#D9A44118;border:1px solid #D9A44140;border-radius:6px;padding:8px 10px;margin-bottom:8px">🧊 Essa oferta está sendo reabastecida no mesmo preço — pode ser uma ordem institucional grande escondida (iceberg).</div>
         <div style="font-size:10.5px;color:var(--faint);margin-top:10px;line-height:1.5">% do book sozinho não é pressão confirmada — só vira sinal quando bate com o Times &amp; Trades.</div>
       </div>
     </div>
@@ -790,7 +798,7 @@ function iniciarModoExame(ligar){
   $('#cardSessao').style.display = modoExame?'none':'block';
   $('#btnNovo').style.display = modoExame?'none':'inline-flex';
   $('#btnCsv').style.display = modoExame?'none':'inline-flex';
-  if(modoExame){ $('#calendarCard').style.display='none'; updateTTVisibility(); updateBookVisibility(); casoIdx=0; carregarCaso(0); }
+  if(modoExame){ $('#calendarCard').style.display='none'; updateTTVisibility(); updateBookVisibility(); updateGradeVisibility(); casoIdx=0; carregarCaso(0); }
   else { novoPregao(); }
 }
 function carregarCaso(i){
@@ -843,6 +851,46 @@ $('#btnVerContinuacao').addEventListener('click',()=>{
 $('#btnProxCaso').addEventListener('click',()=>{ casoIdx++; carregarCaso(casoIdx); });
 
 /* ============ gerador de pregão sintético ============ */
+/* ============ mercado: banco de empresas fictícias ============ */
+const EMPRESAS = [
+  {ticker:'TRN4', nome:'Tranq Energia',      setor:'Energia'},
+  {ticker:'PPLA3',nome:'Popla Alimentos',    setor:'Alimentos'},
+  {ticker:'UNIP3',nome:'Unipec Química',     setor:'Químico'},
+  {ticker:'BBAS3',nome:'Banco Basalto',      setor:'Financeiro'},
+  {ticker:'VRTX3',nome:'Vórtice Logística',  setor:'Logística'},
+  {ticker:'CRBN3',nome:'Carbônia Mineração', setor:'Mineração'},
+  {ticker:'SLPA4',nome:'Sulpar Aço',         setor:'Siderurgia'},
+  {ticker:'NVTC3',nome:'Novatec Sistemas',   setor:'Tecnologia'},
+  {ticker:'AGVE3',nome:'Agrivelox',          setor:'Agronegócio'},
+  {ticker:'MRSL4',nome:'Meridional Saúde',   setor:'Saúde'},
+  {ticker:'TXTW3',nome:'Textilware',         setor:'Varejo'},
+  {ticker:'HDRL3',nome:'Hidrella Energia',   setor:'Energia'}
+];
+let mercado=[]; // ativos sorteados pro "dia" atual, cada um com seu gerarPregao próprio
+let ativoAtivoIdx=0;
+
+function gerarDia(seedBase, nivel){
+  const rnd=mulberry32(seedBase);
+  const n=6+Math.floor(rnd()*5); // 6-10 ativos no dia
+  const banco=[...EMPRESAS]; const sorteados=[];
+  for(let i=0;i<n && banco.length;i++){
+    const idx=Math.floor(rnd()*banco.length);
+    sorteados.push(banco.splice(idx,1)[0]);
+  }
+  return sorteados.map((emp,i)=>{
+    const seed=Math.floor(rnd()*1e9);
+    const g=gerarPregao(seed, nivel);
+    const temSetupValido = rnd()<0.4; // maioria dos dias/ativos NÃO vale operar — treina seleção
+    const temIceberg = rnd()<0.35;
+    let iceberg=null;
+    if(temIceberg){
+      const px=g.candles[Math.floor(g.candles.length/2)].c;
+      iceberg={preco: px*(rnd()<0.5?0.994:1.006), qtdVisivel: 1500+Math.floor(rnd()*2000)};
+    }
+    return {...emp, candles:g.candles, eventos:g.eventos, temSetupValido, iceberg};
+  });
+}
+
 function gerarPregao(seed, nivel){
   nivel = nivel || dificuldade || 'intermediario';
   // ajustes por nível: força de reversão ao VWAP, ruído, chance de troca de regime, catalisadores
@@ -1511,6 +1559,47 @@ function pushTicksDoCandle(idx){
   atualizarBook(c);
 }
 
+/* ============ Grade de Cotações (seleção de ativo) ============ */
+function gradeVisivelNoNivel(){ return dificuldade!=='iniciante'; } // Iniciante: 1 ativo só, sem escolha
+function qtdAtivosNoNivel(){ return dificuldade==='trader' ? mercado.length : Math.min(5, mercado.length); }
+function updateGradeVisibility(){
+  $('#gradeCard').style.display = (gradeVisivelNoNivel() && !modoExame) ? 'block' : 'none';
+}
+function renderGrade(){
+  const body=$('#gradeBody');
+  const visiveis = mercado.slice(0, qtdAtivosNoNivel());
+  const porSetor={};
+  visiveis.forEach((a,i)=>{ (porSetor[a.setor]=porSetor[a.setor]||[]).push(i); });
+  body.innerHTML = Object.entries(porSetor).map(([setor,idxs])=>`
+    <div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 4px">${setor}</div>
+    ${idxs.map(i=>{
+      const a=visiveis[i];
+      const c0=a.candles[0].c, c1=a.candles[Math.min(a.candles.length,cursor||1)-1]?.c ?? c0;
+      const varPct=((c1-c0)/c0*100);
+      const cor = varPct>=0?'var(--alta)':'var(--baixa)';
+      const ativo = i===ativoAtivoIdx ? 'background:var(--panel2);border-color:var(--vwap)' : '';
+      return `<div data-idx="${i}" class="grade-row" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:7px 8px;border-radius:6px;border:1px solid transparent;${ativo};font-family:var(--font-mono);font-size:12px">
+        <b>${a.ticker}</b>
+        <span>${fmt(c1)}</span>
+        <span style="color:${cor}">${varPct>=0?'+':''}${varPct.toFixed(2)}%</span>
+      </div>`;
+    }).join('')}
+  `).join('');
+  body.querySelectorAll('.grade-row').forEach(row=>{
+    row.addEventListener('click', ()=>selecionarAtivo(+row.dataset.idx));
+  });
+}
+function selecionarAtivo(idx){
+  if(pos) return alert('Zere a posição aberta antes de trocar de ativo — cada operação fica só num ativo por vez, igual numa boleta real.');
+  ativoAtivoIdx=idx;
+  const a=mercado[idx];
+  candles=a.candles; eventos=a.eventos; sym=a.ticker;
+  cursor=1; $('#tkSym').textContent=sym;
+  ttFeed=[]; pushTicksDoCandle(0);
+  atualizarGate(); updTicker(); updPos(); draw();
+  renderCalendario(); renderGrade();
+}
+
 /* ============ Book de Ofertas (livro sintético) ============ */
 function bookVisivelNoNivel(){ return dificuldade==='trader'; } // só no Trader, por enquanto
 function updateBookVisibility(){
@@ -1525,13 +1614,23 @@ function gerarBookSnapshot(c){
   const compradores=ticks.filter(t=>t.agressor==='comprador').length;
   const viesCompra = ticks.length ? (compradores/ticks.length - 0.5) : 0;
   const niveis=6, compra=[], venda=[];
+  const ice=mercado[ativoAtivoIdx]?.iceberg;
   for(let i=1;i<=niveis;i++){
     const decai=1/(i*0.55+0.6);
     const baseQ=200+Math.random()*2600;
-    const qC=Math.round(baseQ*decai*(1+viesCompra*0.6+Math.random()*0.5)/100)*100;
-    const qV=Math.round(baseQ*decai*(1-viesCompra*0.6+Math.random()*0.5)/100)*100;
-    compra.push({preco:px-tick*i, qtd:Math.max(100,qC)});
-    venda.push({preco:px+tick*i, qtd:Math.max(100,qV)});
+    let qC=Math.round(baseQ*decai*(1+viesCompra*0.6+Math.random()*0.5)/100)*100;
+    let qV=Math.round(baseQ*decai*(1-viesCompra*0.6+Math.random()*0.5)/100)*100;
+    const precoC=px-tick*i, precoV=px+tick*i;
+    let iceC=false, iceV=false;
+    if(ice){
+      // no nível mais próximo do preço do iceberg, a quantidade "reabastece" em vez de oscilar livre —
+      // no Trader varia um pouco (mais difícil de notar), nos outros fica bem estável
+      const variaIce = dificuldade==='trader' ? (0.8+Math.random()*0.4) : (0.95+Math.random()*0.1);
+      if(Math.abs(precoC-ice.preco)<tick*1.5){ qC=Math.round(ice.qtdVisivel*variaIce); iceC=true; }
+      if(Math.abs(precoV-ice.preco)<tick*1.5){ qV=Math.round(ice.qtdVisivel*variaIce); iceV=true; }
+    }
+    compra.push({preco:precoC, qtd:Math.max(100,qC), iceberg:iceC});
+    venda.push({preco:precoV, qtd:Math.max(100,qV), iceberg:iceV});
   }
   return {compra,venda,spread:tick*2};
 }
@@ -1550,29 +1649,36 @@ function renderBook(){
   $('#bookPctCompra').textContent=pctC+'% compradores';
   $('#bookPctVenda').textContent=pctV+'% vendedores';
   const maxQ=Math.max(...compra.map(l=>l.qtd),...venda.map(l=>l.qtd));
-  const linha=(l,cor)=>`<div style="position:relative;display:flex;justify-content:space-between;padding:2px 4px">
+  const avisar = dificuldade==='iniciante';
+  const linha=(l,cor)=>`<div style="position:relative;display:flex;justify-content:space-between;padding:2px 4px;${l.iceberg&&avisar?'outline:1px dashed '+cor+';border-radius:3px':''}">
     <div style="position:absolute;inset:0;background:${cor}1c;width:${Math.round(l.qtd/maxQ*100)}%"></div>
-    <span style="position:relative;color:${cor}">${fmt(l.preco)}</span>
+    <span style="position:relative;color:${cor}">${fmt(l.preco)}${l.iceberg&&avisar?' 🧊':''}</span>
     <span style="position:relative;color:var(--muted)">${l.qtd.toLocaleString('pt-BR')}</span>
   </div>`;
   $('#bookVenda').innerHTML = venda.map(l=>linha(l,'var(--baixa)')).join('');
   $('#bookCompra').innerHTML = compra.map(l=>linha(l,'var(--alta)')).join('');
   $('#bookSpread').textContent = 'spread ≈ '+fmt(bookAtual.spread);
+  const iceAviso=$('#bookIceAviso');
+  if(iceAviso) iceAviso.style.display = (avisar && [...compra,...venda].some(l=>l.iceberg)) ? 'block' : 'none';
 }
 
 function novoPregao(){
   pause();pos=null;
-  const g=gerarPregao(Math.floor(Math.random()*1e9));
-  candles=g.candles; eventos=g.eventos;
-  cursor=1;sym='TRN4';$('#tkSym').textContent=sym;
+  mercado=gerarDia(Math.floor(Math.random()*1e9), dificuldade);
+  ativoAtivoIdx=0;
+  const a=mercado[0];
+  candles=a.candles; eventos=a.eventos; sym=a.ticker;
+  cursor=1;$('#tkSym').textContent=sym;
   $('#inStop').value='';$('#inAlvo').value='';$('#inEmocional').value='';
   document.querySelectorAll('#critList input[type=checkbox]').forEach(cb=>cb.checked=false);
   ttFeed=[]; pushTicksDoCandle(0);
   sessaoTrades=[];
   updateTTVisibility();
   updateBookVisibility();
+  updateGradeVisibility();
   updateBoletaRealismo();
   renderSaldoBadge();
+  renderGrade();
   updTicker();updPos();atualizarGate();draw();
   renderCalendario();
 }
@@ -1796,6 +1902,8 @@ function setDificuldade(nivel){
   renderCalendario();
   updateTTVisibility();
   updateBookVisibility();
+  updateGradeVisibility();
+  renderGrade();
   updateBoletaRealismo();
   renderSaldoBadge();
   atualizarGate();
