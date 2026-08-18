@@ -514,8 +514,8 @@
           </div>
         </div>
         <div class="frow">
-          <div><span class="flabel">Stop (preço de saída se errar)</span><input type="number" id="inStop" step="0.01"></div>
-          <div><span class="flabel">Alvo (preço de saída se acertar)</span><input type="number" id="inAlvo" step="0.01"></div>
+          <div><span class="flabel">Stop (distância de risco, em R$)</span><input type="number" id="inStop" step="0.01" min="0"></div>
+          <div><span class="flabel">Alvo (distância de ganho, em R$)</span><input type="number" id="inAlvo" step="0.01" min="0"></div>
         </div>
         <div class="frow">
           <div><span class="flabel">Capital total (R$)</span><input type="number" id="inCapital" value="1000" min="0" step="50"></div>
@@ -1127,8 +1127,8 @@ function updTicker(){
   $('#tkVwap').textContent='VWAP '+fmt(k.vwap);
   $('#tkHora').textContent=k.t.toTimeString().slice(0,5);
   $('#inEntrada').value=fmt(k.c);
-  $('#inStop').placeholder='ex: '+fmt(k.c*0.985);
-  $('#inAlvo').placeholder='ex: '+fmt(k.c*1.02);
+  $('#inStop').placeholder='ex: '+fmt(k.c*0.008);
+  $('#inAlvo').placeholder='ex: '+fmt(k.c*0.015);
   $('#prog').value=cursor/candles.length;
   updRisco();updPos();updEventBanner();
 }
@@ -1185,19 +1185,17 @@ $('#inRiscoPct').value = localStorage.getItem(RISCO_KEY)||1;
   updRisco();
 }));
 function updRisco(){
-  const q=+$('#inQtd').value||0, st=+$('#inStop').value, al=+$('#inAlvo').value;
+  const q=+$('#inQtd').value||0, stD=+$('#inStop').value, alD=+$('#inAlvo').value;
   const px=cursor?candles[cursor-1].c:NaN;
-  const dir=lado==='buy'?1:-1;
 
-  // quantidade sugerida pelo risco (Fase 1: Risco R$ / distância do stop)
+  // quantidade sugerida pelo risco (Risco R$ / distância do stop)
   const capital=+$('#inCapital').value||0, riscoPct=(+$('#inRiscoPct').value||0)/100;
-  const distStop = isFinite(px)&&st ? Math.abs(px-st) : NaN;
   const riscoRS = capital*riscoPct;
-  const qtdSug = (distStop>0 && isFinite(distStop)) ? Math.floor(riscoRS/distStop) : NaN;
-  $('#rQtdSug').textContent = isFinite(qtdSug)&&qtdSug>0 ? `${qtdSug} ações (risco ≈ ${fmtBRL(qtdSug*distStop)})` : '—';
+  const qtdSug = (stD>0) ? Math.floor(riscoRS/stD) : NaN;
+  $('#rQtdSug').textContent = isFinite(qtdSug)&&qtdSug>0 ? `${qtdSug} ações (risco ≈ ${fmtBRL(qtdSug*stD)})` : '—';
 
-  if(!q||!isFinite(px)||!st||!al){$('#rRisco').textContent='—';$('#rGanho').textContent='—';$('#rRR').textContent='—';return;}
-  const risco=(px-st)*dir*q, ganho=(al-px)*dir*q;
+  if(!q||!isFinite(px)||!stD||!alD){$('#rRisco').textContent='—';$('#rGanho').textContent='—';$('#rRR').textContent='—';return;}
+  const risco=stD*q, ganho=alD*q;
   $('#rRisco').textContent=fmtBRL(risco);$('#rRisco').className=risco>0?'bad':'';
   $('#rGanho').textContent=fmtBRL(ganho);$('#rGanho').className=ganho>0?'good':'';
   const rr=risco>0&&ganho>0?ganho/risco:NaN;
@@ -1205,22 +1203,20 @@ function updRisco(){
   $('#rRR').className=rr>=1.5?'good':(isFinite(rr)?'bad':'');
 }
 $('#btnUsarSug').addEventListener('click',()=>{
-  const st=+$('#inStop').value, px=cursor?candles[cursor-1].c:NaN;
+  const stD=+$('#inStop').value;
   const capital=+$('#inCapital').value||0, riscoPct=(+$('#inRiscoPct').value||0)/100;
-  const distStop = isFinite(px)&&st ? Math.abs(px-st) : NaN;
-  const qtdSug = (distStop>0) ? Math.floor((capital*riscoPct)/distStop) : 0;
+  const qtdSug = (stD>0) ? Math.floor((capital*riscoPct)/stD) : 0;
   if(qtdSug>0){ $('#inQtd').value=qtdSug; updRisco(); } else alert('Preencha o Stop antes de usar a sugestão.');
 });
 $('#btnOrdem').addEventListener('click',()=>{
-  const q=+$('#inQtd').value||0, st=+$('#inStop').value, al=+$('#inAlvo').value;
+  const q=+$('#inQtd').value||0, stD=+$('#inStop').value, alD=+$('#inAlvo').value;
   const emo=$('#inEmocional').value;
   const px=candles[cursor-1].c, dir=lado==='buy'?1:-1;
-  if(!q||!st||!al)return alert('Preencha quantidade, stop e alvo.');
+  if(!q||!stD||!alD)return alert('Preencha quantidade, stop e alvo.');
   if(!emo)return alert('Selecione seu estado emocional antes de entrar — isso faz parte do processo.');
-  if(st<=0||al<=0)return alert('Stop e Alvo precisam ser preços positivos (ex: '+fmt(px)+'), não podem ser negativos ou zero.');
-  if(Math.abs(st-px)/px>0.35||Math.abs(al-px)/px>0.35)return alert('Esse valor está longe demais do preço atual ('+fmt(px)+').\n\nStop e Alvo esperam o preço de saída, próximo do preço de entrada — ex: stop '+fmt(px*0.985)+', alvo '+fmt(px*1.02)+'.');
-  if((px-st)*dir<=0)return alert((lado==='buy'?'Para compra, o stop precisa estar abaixo do preço.':'Para venda, o stop precisa estar acima do preço.')+'\n\nOs campos Stop e Alvo esperam o preço de saída (ex: '+fmt(px*0.985)+'), não uma distância em pontos ou reais.');
-  if((al-px)*dir<=0)return alert((lado==='buy'?'Para compra, o alvo precisa estar acima do preço.':'Para venda, o alvo precisa estar abaixo do preço.')+'\n\nOs campos Stop e Alvo esperam o preço de saída (ex: '+fmt(px*1.02)+'), não uma distância em pontos ou reais.');
+  if(stD<=0||alD<=0)return alert('Stop e Alvo precisam ser distâncias positivas (ex: '+fmt(px*0.008)+'), a partir do preço de entrada — não preço final, nem valor negativo.');
+  if(stD/px>0.15||alD/px>0.35)return alert('Essa distância é grande demais pra uma operação intraday.\n\nStop e Alvo esperam a distância em reais a partir da entrada (ex: stop '+fmt(px*0.008)+', alvo '+fmt(px*0.015)+'), não o preço final de saída.');
+  const st = px - dir*stD, al = px + dir*alD;
   pos={lado,qtd:q,entrada:px,stop:st,alvo:al,tIn:candles[cursor-1].t,idxIn:cursor-1,
        emocional:emo,criterios:criterios.slice()};
   document.querySelectorAll('#critList input[type=checkbox]').forEach(cb=>cb.checked=false);
