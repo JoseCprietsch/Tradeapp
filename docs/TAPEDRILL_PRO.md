@@ -1,5 +1,8 @@
 # TapeDrill Pro — plano de arquitetura (v2, validado contra a tela real)
 
+**Status: ✅ as 9 fases concluídas.** Fora de escopo, por decisão consciente:
+Bookmap/CVD (item 20, complexidade alta pra valor marginal de treino).
+
 Estrutura pra aproximar o simulador de uma plataforma profissional de verdade.
 Referência: Profit Pro (Nelogica) — validado contra screenshots reais da tela
 completa e pesquisa na documentação oficial da Nelogica, ModalMais, Toro,
@@ -47,10 +50,10 @@ Notícias, SuperDOM.
 | 3 | Seletor de conta "Sim/Real" | Simulador embutido | ✅ Somos 100% sim — virar selo visível |
 | 4 | Calendário econômico | Catalisadores do dia | ✅ Existe (nosso painel) |
 | 5 | Diário/registro | Avaliação contínua | ✅ Existe |
-| 6 | **Grade de Cotações** | Lista de ativos por setor, sparkline, último preço, variação % — é onde o trader ESCOLHE o que operar | 🔲 **NOVO** — gerar 6-10 ativos sintéticos por "dia", agrupados em setores; o trader escaneia e escolhe o melhor setup (habilidade real de seleção!) |
-| 7 | **Times & Trades** | Negócios executados: hora, preço, qtd, agressor | 🔲 NOVO (peça 1 da v1, mantida) |
-| 8 | **Book de Ofertas** | Níveis de compra (azul) e venda (vermelho) com quantidades | 🔲 NOVO |
-| 9 | **Barra de pressão/agressão** | % compradores × vendedores em cima do book e do T&T | 🔲 **NOVO** — com a lição: % do book sozinho NÃO é pressão; só confirmada junto do T&T |
+| 6 | **Grade de Cotações** | Lista de ativos por setor, último preço, variação % — é onde o trader ESCOLHE o que operar | ✅ Feito — banco de 12 empresas fictícias, 6-10 sorteadas por dia, só ~40% com setup válido |
+| 7 | **Times & Trades** | Negócios executados: hora, preço, qtd, agressor | ✅ Feito |
+| 8 | **Book de Ofertas** | Níveis de compra (azul) e venda (vermelho) com quantidades | ✅ Feito — com estratégia Iceberg embutida |
+| 9 | **Barra de pressão/agressão** | % compradores × vendedores em cima do book e do T&T | ✅ Feito |
 | 10 | **VAP (Volume at Price)** | Volume por faixa de preço, POC destacado | 🔲 NOVO |
 | 11 | **Boleta completa** | Preço, stop offset, qtd + botões rápidos (100/200/300), validade, C/V Limite, C/V Mercado, Cancelar Ord., Inverter, Zerar, Cancelar+Zerar | 🔲 Expandir a atual |
 | 12 | **Painel Posição/Day Trade** | Res. Aberto R$ e %, Res. Dia R$ e %, tabela por ativo | 🔲 Melhorar cardPos + criar "resultado do dia" |
@@ -113,15 +116,15 @@ níveis, que apenas oscilam aleatoriamente.
 
 | Fase | Entrega | Por quê nessa ordem |
 |---|---|---|
-| 1 | Motor de ticks + **Times & Trades** | Fundação de dados + peça mais pedagógica |
-| 2 | **Posição/Resultado do dia** (Res. Aberto, Res. Dia em R$ e R) | Melhora o que existe, sem dado novo |
-| 3 | **Book de Ofertas + barra de pressão** | Usa o motor da fase 1 |
-| 4 | **Grade de Cotações** (multi-ativos) | Muda o gerador pra gerarDia — grande, mas transforma o produto |
-| 5 | **VAP + timeframes** | Reaproveitam dados existentes |
-| 6 | **Boleta completa** (limitada, stop, validade, botões rápidos) | Muda lógica de execução |
-| 7 | **Notícias sintéticas + barra de status + selo Sim** | Ambiência/imersão |
-| 8 | Atalhos de teclado | Polish |
-| 9 | Desenho no gráfico + abas de layout | Baixa prioridade |
+| 1 | Motor de ticks + **Times & Trades** | ✅ Concluída |
+| 2 | **Posição/Resultado do dia** (Res. Aberto, Res. Dia em R$ e R) | ✅ Concluída |
+| 3 | **Book de Ofertas + barra de pressão** | ✅ Concluída |
+| 4 | **Grade de Cotações** (multi-ativos) | ✅ Concluída |
+| 5 | **VAP + timeframes** | ✅ Concluída |
+| 6 | **Boleta completa** (limitada, stop, validade, botões rápidos) | ✅ Concluída |
+| 7 | **Notícias sintéticas + barra de status + selo Sim** | ✅ Concluída |
+| 8 | Atalhos de teclado | ✅ Concluída |
+| 9 | Desenho no gráfico + abas de layout | ✅ Concluída |
 
 ## Ligação com os níveis de dificuldade (mantida da v1, expandida)
 
