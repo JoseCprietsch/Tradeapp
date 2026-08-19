@@ -496,7 +496,7 @@
       <canvas id="chart" height="520"></canvas>
       <button id="btnLive" style="display:none" title="Voltar para o candle mais recente">⟳ Ao vivo</button>
     </div>
-    <div class="hint">Arraste o gráfico pra ver candles passados · <kbd>Espaço</kbd> avança 1 candle · <kbd>P</kbd> reproduz/pausa · linha âmbar = VWAP · linha roxa tracejada = catalisador macro</div>
+    <div class="hint">Arraste o gráfico pra ver candles passados · <kbd>Espaço</kbd> avança 1 candle · <kbd>P</kbd> reproduz/pausa · <kbd>C</kbd> compra · <kbd>V</kbd> venda · <kbd>Z</kbd> zera · <kbd>I</kbd> inverte · linha âmbar = VWAP · linha roxa tracejada = catalisador macro</div>
   </section>
 
   <aside class="side">
@@ -1407,7 +1407,35 @@ document.addEventListener('keydown',e=>{
   if(e.target.matches('input,textarea,select'))return;
   if(e.code==='Space'){e.preventDefault();step();}
   if(e.key.toLowerCase()==='p'){e.preventDefault();playing?pause():play();}
+  if(e.key.toLowerCase()==='c'){e.preventDefault();atalhoLado('buy');}
+  if(e.key.toLowerCase()==='v'){e.preventDefault();atalhoLado('sell');}
+  if(e.key.toLowerCase()==='z'){e.preventDefault();if(pos)fecharPos(candles[cursor-1].c,'manual');}
+  if(e.key.toLowerCase()==='i'){e.preventDefault();atalhoInverter();}
 });
+function avisoAtalho(msg){
+  const el=document.createElement('div');
+  el.textContent=msg;
+  el.style.cssText='position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--vwap);color:var(--text);padding:8px 16px;border-radius:8px;font-family:var(--font-mono);font-size:12.5px;z-index:200;pointer-events:none';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1400);
+}
+function atalhoLado(l){
+  setLado(l);
+  const stD=+$('#inStop').value, alD=+$('#inAlvo').value;
+  if(cursor===0||!candles.length){return;}
+  if(stD>0 && alD>0){ $('#btnOrdem').click(); }
+  else { $('#inStop').focus(); avisoAtalho((l==='buy'?'C':'V')+' — preencha Stop/Alvo pra completar a ordem'); }
+}
+function atalhoInverter(){
+  if(!pos){ avisoAtalho('I — sem posição aberta pra inverter'); return; }
+  const {qtd,stop,alvo,entrada,lado:ladoAntigo,emocional,criterios}=pos;
+  const stD=Math.abs(entrada-stop), alD=Math.abs(alvo-entrada);
+  fecharPos(candles[cursor-1].c,'manual');
+  const novoLado = ladoAntigo==='buy' ? 'sell' : 'buy';
+  setLado(novoLado);
+  abrirPosicaoAgora(candles[cursor-1].c, novoLado, qtd, stD, alD, emocional, criterios.slice());
+  avisoAtalho('I — posição invertida pra '+(novoLado==='buy'?'compra':'venda'));
+}
 
 /* ============ boleta ============ */
 $('#selBuy').addEventListener('click',()=>setLado('buy'));
