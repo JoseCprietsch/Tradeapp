@@ -778,6 +778,7 @@
   <span>TapeDrill v1.0</span>
   <span id="statusData"></span>
   <span id="statusHora"></span>
+  <span id="statusRegressivo" title="Tempo restante até o fim do pregão sintético"></span>
   <span class="status-dot">● Conectado</span>
 </div>
 <footer>Ferramenta de estudo com dinheiro fictício. Resultados simulados não garantem desempenho real. Dados sintéticos, cenários do Modo Exame (roteirizados à mão) ou CSV importado — sem conexão com a B3.</footer>
@@ -1276,6 +1277,17 @@ function draw(){
     ctx.fillStyle=k.c>=k.o?'#21C77D40':'#F04E5E40';
     ctx.fillRect(vx,chH+8+(volH-vh),bw,vh);
   });
+  // média móvel do volume (20 períodos)
+  const volMaN=20;
+  ctx.strokeStyle='#2ECC8F';ctx.lineWidth=1.3;ctx.beginPath();
+  view.forEach((k,i)=>{
+    const idxG=start+i;
+    const janela=candlesAgg.slice(Math.max(0,idxG-volMaN+1),idxG+1);
+    const media=janela.reduce((s,c)=>s+c.v,0)/janela.length;
+    const vx=x(idxG)+bw/2, vy=chH+8+(volH-Math.min(volH,(media/vMax)*volH));
+    i?ctx.lineTo(vx,vy):ctx.moveTo(vx,vy);
+  });
+  ctx.stroke();ctx.lineWidth=1;
 
   // candles
   view.forEach((k,i)=>{
@@ -1337,20 +1349,40 @@ function draw(){
     ctx.fillStyle='#D9A441';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
     ctx.fillText('ENTRADA',6,yyE-4);
     ctx.font='11px "IBM Plex Mono"';
+
+    // ponto de cobertura: preço em que o SALDO DA CONTA (não só o stop da operação) zeraria
+    if(dificuldade!=='iniciante' && pos.qtd>0){
+      const dirC=pos.lado==='buy'?1:-1;
+      const precoCobertura = pos.entrada - dirC*(getSaldoAtual()/pos.qtd);
+      if(precoCobertura>lo && precoCobertura<hi){
+        const yyC=y(precoCobertura);
+        ctx.setLineDash([1,3]);ctx.strokeStyle='#F2495C55';ctx.beginPath();
+        ctx.moveTo(0,yyC);ctx.lineTo(chW,yyC);ctx.stroke();ctx.setLineDash([]);
+        ctx.fillStyle='#F2495C';ctx.font='9.5px "IBM Plex Mono"';ctx.textAlign='left';
+        ctx.fillText('Ponto de Cobertura '+fmt(precoCobertura),6,yyC-4);
+        ctx.font='11px "IBM Plex Mono"';
+      }
+    }
   }
   if(ordemPendente && dificuldade==='trader'){
     const cor = ordemPendente.lado==='buy' ? '#2ECC8F' : '#F04E5E';
     etiquetaPreco(ordemPendente.gatilho, cor, '#0B0E14');
   }
 
+  function renderOhlcReadout(k){
+    if(!k){ $('#ohlc').innerHTML=''; return; }
+    const ajuste = candles[0] ? candles[0].o : k.o;
+    const d=(k.c-k.vwap)/k.vwap*100;
+    const dAj=((k.c-ajuste)/ajuste*100);
+    $('#ohlc').innerHTML=`${k.t.toTimeString().slice(0,5)} · A <b>${fmt(k.o)}</b> M <b>${fmt(k.h)}</b> m <b>${fmt(k.l)}</b> F <b>${fmt(k.c)}</b> · Vol <b>${k.v.toLocaleString('pt-BR')}</b> · Ajuste <b>${fmt(ajuste)}</b> (${dAj>=0?'+':''}${dAj.toFixed(2)}%) · <span style="color:#F5B841">Δ VWAP ${d>=0?'+':''}${d.toFixed(2)}%</span>`;
+  }
   // crosshair
   if(hoverIdx>=start&&hoverIdx<cursorAgg){
     const k=candlesAgg[hoverIdx],cx=x(hoverIdx)+bw/2;
     ctx.strokeStyle='#3A476388';ctx.setLineDash([3,3]);
     ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,chH+8+volH);ctx.stroke();ctx.setLineDash([]);
-    const d=(k.c-k.vwap)/k.vwap*100;
-    $('#ohlc').innerHTML=`${k.t.toTimeString().slice(0,5)} · A <b>${fmt(k.o)}</b> M <b>${fmt(k.h)}</b> m <b>${fmt(k.l)}</b> F <b>${fmt(k.c)}</b> · Vol <b>${k.v.toLocaleString('pt-BR')}</b> · <span style="color:#F5B841">Δ VWAP ${d>=0?'+':''}${d.toFixed(2)}%</span>`;
-  } else $('#ohlc').innerHTML='';
+    renderOhlcReadout(k);
+  } else renderOhlcReadout(candlesAgg[cursorAgg-1]);
   updLiveBtn();
   atualizarLinhaPendente();
   atualizarLinhaPosicao();
@@ -1486,6 +1518,7 @@ function step(){
   checarOrdemPendente();
   checarSaida();
   checarNoticias();
+  atualizarContadorRegressivo();
   updTicker();draw();
 }
 $('#btnProximoPregao').addEventListener('click',()=>{
@@ -2015,6 +2048,7 @@ function selecionarAtivo(idx){
   cursor=1; $('#tkSym').textContent=sym;
   ttFeed=[]; pushTicksDoCandle(0);
   noticiasReveladas=new Set(); renderNoticiasVazio();
+  atualizarContadorRegressivo();
   atualizarGate(); updTicker(); updPos(); draw();
   renderCalendario(); renderGrade();
 }
@@ -2097,6 +2131,7 @@ function novoPregao(){
   sessaoTrades=[];
   noticiasReveladas=new Set(); renderNoticiasVazio();
   updateTTVisibility();
+  atualizarContadorRegressivo();
   updateBookVisibility();
   updateGradeVisibility();
   updateNoticiasVisibility();
@@ -2493,6 +2528,12 @@ function tickStatusBar(){
   $('#statusHora').textContent=agora.toLocaleTimeString('pt-BR');
 }
 tickStatusBar(); setInterval(tickStatusBar,1000);
+function atualizarContadorRegressivo(){
+  const el=$('#statusRegressivo'); if(!el||!candles.length) return;
+  const rest=Math.max(0,candles.length-cursor);
+  const hh=String(Math.floor(rest/60)).padStart(2,'0'), mm=String(rest%60).padStart(2,'0');
+  el.textContent = rest>0 ? `⏱ ${hh}:${mm} até o fim do pregão` : '⏱ pregão encerrado';
+}
 
 setLado('buy');renderCrit();renderTrades();novoPregao();resize();initAuth();
 </script>
