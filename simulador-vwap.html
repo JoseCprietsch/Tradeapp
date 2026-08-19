@@ -266,6 +266,15 @@
   }
 
   .side{display:flex;flex-direction:column;gap:16px}
+  @media(min-width:981px){
+    .side{
+      position:sticky; top:16px;
+      max-height:calc(100vh - 32px);
+      overflow-y:auto; overflow-x:hidden;
+      scrollbar-width:thin;
+      padding-right:2px;
+    }
+  }
 
   /* ---- Acordeão mobile: cabeçalhos clicáveis que recolhem o corpo do card ---- */
   @media(max-width:860px){
