@@ -1345,10 +1345,12 @@ function draw(){
   if(pos){
     etiquetaPreco(pos.stop, '#F04E5E', '#fff');
     etiquetaPreco(pos.alvo, '#4DA3FF', '#0B0E14');
-    const yyE=etiquetaPreco(pos.entrada, '#D9A441', '#1A1405');
-    ctx.fillStyle='#D9A441';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
-    ctx.fillText('ENTRADA',6,yyE-4);
-    ctx.font='11px "IBM Plex Mono"';
+    if(dificuldade!=='trader'){
+      const yyE=etiquetaPreco(pos.entrada, '#D9A441', '#1A1405');
+      ctx.fillStyle='#D9A441';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
+      ctx.fillText('ENTRADA',6,yyE-4);
+      ctx.font='11px "IBM Plex Mono"';
+    }
 
     // ponto de cobertura: preço em que o SALDO DA CONTA (não só o stop da operação) zeraria
     if(dificuldade!=='iniciante' && pos.qtd>0){
