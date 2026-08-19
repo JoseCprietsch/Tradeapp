@@ -218,6 +218,16 @@
   .card .body{padding:12px 16px 16px}
 
   #chartWrap{position:relative;padding:8px 8px 4px}
+  #linhaOrdemPendente, #linhaPosicao{
+    position:absolute; left:16px; height:20px; display:flex; align-items:center; gap:8px;
+    font-family:var(--font-mono); font-size:11px; padding:0 8px; border-radius:4px; pointer-events:none;
+  }
+  #linhaOrdemPendente b{pointer-events:none}
+  #linhaOrdemPendente .x-cancela, #linhaPosicao .x-cancela{
+    pointer-events:auto; cursor:pointer; background:#00000030; border-radius:3px; width:16px; height:16px;
+    display:flex; align-items:center; justify-content:center; font-weight:700;
+  }
+  #linhaOrdemPendente .x-cancela:hover, #linhaPosicao .x-cancela:hover{background:#00000060}
   canvas{display:block;width:100%;height:520px;border-radius:8px}
   #ohlc{
     position:absolute;top:16px;left:20px;font-family:var(--font-mono);font-size:12px;color:var(--muted);
@@ -508,6 +518,8 @@
       <div id="evBanner"></div>
       <canvas id="chart" height="520"></canvas>
       <button id="btnLive" style="display:none" title="Voltar para o candle mais recente">⟳ Ao vivo</button>
+      <div id="linhaOrdemPendente" style="display:none"></div>
+      <div id="linhaPosicao" style="display:none"></div>
     </div>
     <div class="hint">Arraste o gráfico pra ver candles passados · <kbd>Espaço</kbd> avança 1 candle · <kbd>P</kbd> reproduz/pausa · <kbd>C</kbd> compra · <kbd>V</kbd> venda · <kbd>Z</kbd> zera · <kbd>I</kbd> inverte · linha âmbar = VWAP · linha roxa tracejada = catalisador macro</div>
   </section>
@@ -1304,17 +1316,31 @@ function draw(){
     ctx.fillText(fmt(l.preco),4,yy-4);
   });
 
-  // linhas de posição
+  // linhas de posição — com etiqueta colorida flutuando na borda direita, como numa boleta real
+  function etiquetaPreco(p, cor, corTexto){
+    const yy=y(p);
+    ctx.strokeStyle=cor+'99';ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(chW,yy);ctx.stroke();ctx.setLineDash([]);
+    const txt=fmt(p), tw=ctx.measureText(txt).width+14;
+    ctx.fillStyle=cor;
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(chW+2, yy-9, tw, 18, 3); else ctx.rect(chW+2, yy-9, tw, 18);
+    ctx.fill();
+    ctx.fillStyle=corTexto||'#0B0E14';ctx.font='10.5px "IBM Plex Mono"';ctx.textAlign='left';
+    ctx.fillText(txt, chW+9, yy+4);
+    return yy;
+  }
   if(pos){
-    const lines=[['ENTRADA',pos.entrada,'#E8ECF4'],['STOP',pos.stop,'#F04E5E'],['ALVO',pos.alvo,'#4DA3FF']];
-    ctx.setLineDash([5,4]);
-    lines.forEach(([lab,p,col])=>{
-      const yy=y(p);ctx.strokeStyle=col;ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(chW,yy);ctx.stroke();
-      ctx.fillStyle=col;ctx.font='10px "IBM Plex Mono"';
-      ctx.fillText(lab+' '+fmt(p),6,yy-4);
-      ctx.font='11px "IBM Plex Mono"';
-    });
-    ctx.setLineDash([]);
+    etiquetaPreco(pos.stop, '#F04E5E', '#fff');
+    etiquetaPreco(pos.alvo, '#4DA3FF', '#0B0E14');
+    const yyE=etiquetaPreco(pos.entrada, '#D9A441', '#1A1405');
+    ctx.fillStyle='#D9A441';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
+    ctx.fillText('ENTRADA',6,yyE-4);
+    ctx.font='11px "IBM Plex Mono"';
+  }
+  if(ordemPendente && dificuldade==='trader'){
+    const cor = ordemPendente.lado==='buy' ? '#2ECC8F' : '#F04E5E';
+    etiquetaPreco(ordemPendente.gatilho, cor, '#0B0E14');
   }
 
   // crosshair
@@ -1326,6 +1352,8 @@ function draw(){
     $('#ohlc').innerHTML=`${k.t.toTimeString().slice(0,5)} · A <b>${fmt(k.o)}</b> M <b>${fmt(k.h)}</b> m <b>${fmt(k.l)}</b> F <b>${fmt(k.c)}</b> · Vol <b>${k.v.toLocaleString('pt-BR')}</b> · <span style="color:#F5B841">Δ VWAP ${d>=0?'+':''}${d.toFixed(2)}%</span>`;
   } else $('#ohlc').innerHTML='';
   updLiveBtn();
+  atualizarLinhaPendente();
+  atualizarLinhaPosicao();
 }
 let dragging=false, dragStartX=0, dragStartOffset=0, dragMoved=false;
 let ultimoLo=0, ultimoHi=1, ultimoChH=1;
@@ -1613,14 +1641,48 @@ $('#btnOrdem').addEventListener('click',()=>{
 $('#btnCancelarPendente').addEventListener('click',()=>{ ordemPendente=null; renderPendente(); });
 function renderPendente(){
   const card=$('#cardPendente');
-  if(!ordemPendente){ card.hidden=true; return; }
-  card.hidden=false;
-  const nomes={limitada:'Limitada',stop:'Stop de entrada'};
-  $('#pendenteInfo').innerHTML =
-    `${ordemPendente.lado==='buy'?'<span class="up">▲ COMPRA</span>':'<span class="down">▼ VENDA</span>'} · ${nomes[ordemPendente.tipo]}<br>
-     Dispara em: <b>${fmt(ordemPendente.gatilho)}</b><br>
-     Quantidade: ${ordemPendente.qtd.toLocaleString('pt-BR')}<br>
-     Validade: dia (cancela sozinha no fim do pregão)`;
+  const inline = dificuldade==='trader'; // Trader: ordem aparece no gráfico, igual numa tela real — sem card lateral
+  if(!ordemPendente){ card.hidden=true; atualizarLinhaPendente(); return; }
+  card.hidden = inline;
+  if(!inline){
+    const nomes={limitada:'Limitada',stop:'Stop de entrada'};
+    $('#pendenteInfo').innerHTML =
+      `${ordemPendente.lado==='buy'?'<span class="up">▲ COMPRA</span>':'<span class="down">▼ VENDA</span>'} · ${nomes[ordemPendente.tipo]}<br>
+       Dispara em: <b>${fmt(ordemPendente.gatilho)}</b><br>
+       Quantidade: ${ordemPendente.qtd.toLocaleString('pt-BR')}<br>
+       Validade: dia (cancela sozinha no fim do pregão)`;
+  }
+  atualizarLinhaPendente();
+}
+function atualizarLinhaPendente(){
+  const el=$('#linhaOrdemPendente');
+  if(!ordemPendente || dificuldade!=='trader'){ el.style.display='none'; return; }
+  const o=ordemPendente;
+  const yy = ultimoChH - ((o.gatilho-ultimoLo)/(ultimoHi-ultimoLo))*ultimoChH + 4;
+  const cor = o.lado==='buy' ? '#2ECC8F' : '#F04E5E';
+  const nomes={limitada:'Limitada',stop:'Stop entrada'};
+  el.style.display='flex';
+  el.style.top=(yy+8-10)+'px';
+  el.style.width=Math.max(80,cv.clientWidth-62-16)+'px';
+  el.style.background=cor+'d9';
+  el.style.color=o.lado==='buy'?'#0B0E14':'#fff';
+  el.innerHTML = `<b>${o.lado==='buy'?'Compra':'Venda'} ${nomes[o.tipo]} ${o.qtd}</b><span style="margin-left:auto">${fmt(o.gatilho)}</span><span class="x-cancela">×</span>`;
+  el.querySelector('.x-cancela').addEventListener('click', ()=>{ ordemPendente=null; renderPendente(); });
+}
+function atualizarLinhaPosicao(){
+  const el=$('#linhaPosicao');
+  if(!pos || dificuldade!=='trader' || !candles.length){ el.style.display='none'; return; }
+  const px=candles[cursor-1].c, dir=pos.lado==='buy'?1:-1;
+  const pnl=(px-pos.entrada)*dir*pos.qtd;
+  const yy = ultimoChH - ((pos.entrada-ultimoLo)/(ultimoHi-ultimoLo))*ultimoChH + 4;
+  const cor = '#D9A441';
+  el.style.display='flex';
+  el.style.top=(yy+8-10)+'px';
+  el.style.width=Math.max(80,cv.clientWidth-62-16)+'px';
+  el.style.background=cor+'d9';
+  el.style.color='#1A1405';
+  el.innerHTML = `<b>${pos.lado==='buy'?'Comprado':'Vendido'} ${pos.qtd}</b><span style="margin-left:auto">${fmtBRL(pnl)}</span><span class="x-cancela">×</span>`;
+  el.querySelector('.x-cancela').addEventListener('click', ()=>{ if(pos) fecharPos(candles[cursor-1].c,'manual'); });
 }
 function checarOrdemPendente(){
   if(!ordemPendente || pos) return;
