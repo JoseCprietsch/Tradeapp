@@ -100,6 +100,7 @@
   .btn.ghost{background:transparent}
   .btn.exam{background:#7C5CFF22;border-color:#7C5CFF;color:#B7A6FF}
   .btn.exam.on{background:#7C5CFF;color:#0B0E14}
+  #btnLinha.on{background:var(--vwap);border-color:var(--vwap);color:#1A1405}
 
   /* ---- modal de boas-vindas (onboarding) ---- */
   #onboardModal, #gameOverModal, #vitoriaModal{
@@ -255,6 +256,8 @@
   /* Checklist gate — assinatura da ferramenta */
   .gate{border:1px solid var(--border);border-radius:12px;overflow:hidden}
   .gate-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 0}
+  .painel-close{margin-left:auto;padding-left:10px;color:var(--faint);font-size:15px;text-decoration:none;line-height:1}
+  .painel-close:hover{color:var(--baixa)}
   .gate-head button{background:none;border:0;color:var(--faint);font-size:11px;text-decoration:underline}
   .crit{list-style:none;padding:10px 16px 6px;display:flex;flex-direction:column;gap:6px}
   .crit li{display:flex;gap:10px;align-items:flex-start}
@@ -336,6 +339,15 @@
     border-top:1px solid var(--border-soft);font-family:var(--font-mono);font-size:10.5px;color:var(--faint);
   }
   #statusBar .status-dot{color:#2ECC8F;margin-left:auto}
+  #layoutTabs{
+    display:flex;gap:6px;align-items:center;padding:8px 20px;
+    border-top:1px solid var(--border-soft);
+  }
+  #layoutTabs button{
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    border-radius:6px;padding:5px 12px;font-size:11.5px;font-family:var(--font-ui);
+  }
+  #layoutTabs button.on{border-color:var(--vwap);color:var(--text);background:#D9A44122}
 </style>
 </head>
 <body>
@@ -360,6 +372,7 @@
     <button class="btn exam" id="btnExame" title="Casos desenhados à mão para testar sua leitura">Modo Exame</button>
     <button class="btn" id="btnNovo" title="Gera um novo pregão sintético">Novo pregão</button>
     <button class="btn ghost" id="btnCsv" title="Importar candles reais (CSV exportado do TradingView)">Importar CSV</button>
+    <button class="btn ghost" id="btnLinha" title="Clique no gráfico pra marcar um nível de suporte/resistência">📏 Linha</button>
     <input type="file" id="fileCsv" accept=".csv,text/csv">
     <button class="btn primary" id="btnPlay">▶ Reproduzir</button>
     <button class="btn" id="btnStep" title="Avança 1 candle (barra de espaço)">+1</button>
@@ -504,6 +517,7 @@
       <div class="gate-head">
         <h2 style="padding:0">Grade de Cotações</h2>
         <span style="font-size:10px;color:var(--faint)">escolha o ativo</span>
+        <a href="#" class="painel-close" data-painel="grade">×</a>
       </div>
       <div id="gradeBody" style="padding:0 16px 14px;max-height:280px;overflow-y:auto"></div>
     </div>
@@ -511,6 +525,7 @@
       <div class="gate-head">
         <h2 style="padding:0">Calendário do pregão</h2>
         <span id="calendarNivel" style="font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px"></span>
+        <a href="#" class="painel-close" data-painel="calendario">×</a>
       </div>
       <div class="acc-body" id="calendarBody" style="padding:12px 16px 16px"></div>
     </div>
@@ -519,6 +534,7 @@
       <div class="gate-head">
         <h2 style="padding:0">Notícias</h2>
         <span style="font-size:10px;color:var(--faint)">ao vivo</span>
+        <a href="#" class="painel-close" data-painel="noticias">×</a>
       </div>
       <div id="noticiasBody" style="padding:0 16px 14px;font-size:12px;color:var(--muted);max-height:180px;overflow-y:auto"></div>
     </div>
@@ -527,6 +543,7 @@
       <div class="gate-head">
         <h2 style="padding:0">Times &amp; Trades</h2>
         <span style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px">agressor</span>
+        <a href="#" class="painel-close" data-painel="tt">×</a>
       </div>
       <div style="padding:0 16px 12px">
         <div id="ttHead" style="display:flex;justify-content:space-between;font-size:10px;color:var(--faint);padding:0 2px 6px;border-bottom:1px solid var(--border-soft)">
@@ -539,6 +556,7 @@
     <div class="card" id="bookCard" style="display:none">
       <div class="gate-head">
         <h2 style="padding:0">Book de Ofertas</h2>
+        <a href="#" class="painel-close" data-painel="book">×</a>
       </div>
       <div style="padding:0 16px 14px">
         <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:4px" id="bookPressaoBar">
@@ -674,6 +692,14 @@
       </div>
     </div>
 
+    <div class="card" id="linhasCard" hidden>
+      <div class="gate-head">
+        <h2 style="padding:0">Linhas desenhadas</h2>
+        <a href="#" id="btnLimparLinhas" style="font-size:11px;color:var(--faint)">limpar tudo</a>
+      </div>
+      <div id="linhasBody" style="padding:0 16px 14px;font-family:var(--font-mono);font-size:12px"></div>
+    </div>
+
     <div class="card" id="cardPendente" hidden>
       <h2>Ordem pendente</h2>
       <div class="body" style="padding:12px 16px 16px">
@@ -730,6 +756,12 @@
   </section>
 </main>
 
+<div id="layoutTabs" style="display:none">
+  <button class="on" data-layout="1">Layout 1</button>
+  <button data-layout="2">Layout 2</button>
+  <button data-layout="3">Layout 3</button>
+  <span style="margin-left:auto;font-size:10.5px;color:var(--faint)">feche painéis clicando no × — fica salvo nessa aba</span>
+</div>
 <div id="statusBar" style="display:none">
   <span>TapeDrill v1.0</span>
   <span id="statusData"></span>
@@ -1185,6 +1217,7 @@ function draw(){
   }
   const pad=(hi-lo)*0.06||0.5; lo-=pad;hi+=pad;
   const y=p=>chH-( (p-lo)/(hi-lo) )*chH+4;
+  ultimoLo=lo; ultimoHi=hi; ultimoChH=chH;
   const x=i=>(i-start)*per+2;
 
   // grid horizontal
@@ -1262,6 +1295,15 @@ function draw(){
     ctx.restore();
   });
 
+  // linhas desenhadas pelo usuário (suporte/resistência)
+  linhasDesenho.forEach(l=>{
+    const yy=y(l.preco);
+    ctx.setLineDash([2,4]);ctx.strokeStyle='#8B94A8';ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(chW,yy);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#8B94A8';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
+    ctx.fillText(fmt(l.preco),4,yy-4);
+  });
+
   // linhas de posição
   if(pos){
     const lines=[['ENTRADA',pos.entrada,'#E8ECF4'],['STOP',pos.stop,'#F04E5E'],['ALVO',pos.alvo,'#4DA3FF']];
@@ -1286,6 +1328,39 @@ function draw(){
   updLiveBtn();
 }
 let dragging=false, dragStartX=0, dragStartOffset=0, dragMoved=false;
+let ultimoLo=0, ultimoHi=1, ultimoChH=1;
+let modoDesenho=false;
+let layoutAtivo = +(localStorage.getItem('simvwap_layout')||1);
+let layouts = JSON.parse(localStorage.getItem('simvwap_layouts')||'null') || {1:{},2:{},3:{}};
+function layoutQuerPainel(chave){
+  const l = layouts[layoutAtivo] || {};
+  return l[chave] !== false; // mostrado por padrão, a menos que essa aba tenha fechado explicitamente
+}
+function persistirLayouts(){
+  localStorage.setItem('simvwap_layouts', JSON.stringify(layouts));
+  localStorage.setItem('simvwap_layout', String(layoutAtivo));
+  preferencias = {...preferencias, layouts, layoutAtivo};
+  if(currentUser) cloudSaveConfigDebounced();
+}
+function atualizarTodosPaineis(){
+  updateTTVisibility(); updateBookVisibility(); updateGradeVisibility();
+  updateNoticiasVisibility(); renderCalendario();
+}
+document.querySelectorAll('.painel-close').forEach(a=>{
+  a.addEventListener('click', e=>{
+    e.preventDefault();
+    layouts[layoutAtivo] = layouts[layoutAtivo] || {};
+    layouts[layoutAtivo][a.dataset.painel] = false;
+    persistirLayouts(); atualizarTodosPaineis();
+  });
+});
+$('#layoutTabs').addEventListener('click', e=>{
+  const b=e.target.closest('button[data-layout]'); if(!b) return;
+  layoutAtivo = +b.dataset.layout;
+  document.querySelectorAll('#layoutTabs button[data-layout]').forEach(x=>x.classList.toggle('on', x===b));
+  persistirLayouts(); atualizarTodosPaineis();
+});
+let linhasDesenho=[]; // [{preco}]
 cv.style.touchAction='none';
 cv.addEventListener('pointerdown', e=>{
   dragging=true; dragMoved=false; dragStartX=e.clientX; dragStartOffset=viewOffset;
@@ -1307,7 +1382,16 @@ cv.addEventListener('pointermove', e=>{
   const end=cursorAgg-viewOffset, start=Math.max(0,end-visN);
   hoverIdx=start+Math.floor((e.clientX-r.left-2)/per);draw();
 });
-cv.addEventListener('pointerup', ()=>{dragging=false});
+cv.addEventListener('pointerup', e=>{
+  if(!dragMoved && modoDesenho){
+    const r=cv.getBoundingClientRect();
+    const py=e.clientY-r.top;
+    const preco = ultimoLo + (1-(py-4)/ultimoChH)*(ultimoHi-ultimoLo);
+    linhasDesenho.push({preco});
+    renderLinhas(); draw();
+  }
+  dragging=false;
+});
 cv.addEventListener('pointercancel', ()=>{dragging=false});
 cv.addEventListener('mouseleave',()=>{if(!dragging){hoverIdx=-1;draw()}});
 function updLiveBtn(){
@@ -1724,11 +1808,31 @@ function fmtHoraIdx(idx){
   const t=new Date(); t.setHours(10,0,0,0); t.setMinutes(idx);
   return t.toTimeString().slice(0,5);
 }
+/* ============ desenho no gráfico (linhas horizontais de suporte/resistência) ============ */
+$('#btnLinha').addEventListener('click',()=>{
+  modoDesenho=!modoDesenho;
+  $('#btnLinha').classList.toggle('on',modoDesenho);
+  cv.style.cursor = modoDesenho?'crosshair':'';
+});
+function renderLinhas(){
+  const card=$('#linhasCard'), body=$('#linhasBody');
+  card.hidden = linhasDesenho.length===0;
+  body.innerHTML = linhasDesenho.map((l,i)=>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
+      <span>${fmt(l.preco)}</span>
+      <a href="#" data-i="${i}" class="rm-linha" style="color:var(--baixa);font-size:11px">remover</a>
+    </div>`).join('');
+  body.querySelectorAll('.rm-linha').forEach(a=>{
+    a.addEventListener('click',e=>{ e.preventDefault(); linhasDesenho.splice(+a.dataset.i,1); renderLinhas(); draw(); });
+  });
+}
+$('#btnLimparLinhas').addEventListener('click',e=>{ e.preventDefault(); linhasDesenho=[]; renderLinhas(); draw(); });
+
 function renderCalendario(){
   const card=$('#calendarCard'), body=$('#calendarBody'), nivelEl=$('#calendarNivel');
   const nomes={iniciante:'Iniciante',intermediario:'Intermediário',trader:'Trader'};
   nivelEl.textContent = nomes[dificuldade]||'';
-  if(dificuldade==='trader'){ card.style.display='none'; return; } // Trader: sem checklist, sem ajuda
+  if(dificuldade==='trader' || !layoutQuerPainel('calendario')){ card.style.display='none'; return; } // Trader: sem checklist, sem ajuda
   card.style.display='block';
   if(!eventos.length){
     body.innerHTML = `<div style="font-size:12.5px;color:var(--muted);line-height:1.5">Nenhum evento de calendário nesse pregão — dia mais limpo pra operar normalmente, mas confira sempre antes de entrar.</div>`;
@@ -1753,7 +1857,7 @@ let ttFeed=[]; // mais recente primeiro
 const TT_MAX=80;
 function ttVisivelNoNivel(){ return dificuldade!=='iniciante'; } // Iniciante: sem fita, começa só no gráfico
 function updateTTVisibility(){
-  $('#ttCard').style.display = (ttVisivelNoNivel() && !modoExame) ? 'block' : 'none';
+  $('#ttCard').style.display = (ttVisivelNoNivel() && !modoExame && layoutQuerPainel('tt')) ? 'block' : 'none';
 }
 
 /* ============ Notícias (manchetes a partir dos catalisadores) ============ */
@@ -1764,7 +1868,7 @@ const MANCHETES = {
 let noticiasReveladas=new Set();
 function noticiasVisivelNoNivel(){ return dificuldade!=='iniciante'; }
 function updateNoticiasVisibility(){
-  $('#noticiasCard').style.display = (noticiasVisivelNoNivel() && !modoExame) ? 'block' : 'none';
+  $('#noticiasCard').style.display = (noticiasVisivelNoNivel() && !modoExame && layoutQuerPainel('noticias')) ? 'block' : 'none';
 }
 function checarNoticias(){
   if(!noticiasVisivelNoNivel()) return;
@@ -1812,7 +1916,7 @@ function pushTicksDoCandle(idx){
 function gradeVisivelNoNivel(){ return dificuldade!=='iniciante'; } // Iniciante: 1 ativo só, sem escolha
 function qtdAtivosNoNivel(){ return dificuldade==='trader' ? mercado.length : Math.min(5, mercado.length); }
 function updateGradeVisibility(){
-  $('#gradeCard').style.display = (gradeVisivelNoNivel() && !modoExame) ? 'block' : 'none';
+  $('#gradeCard').style.display = (gradeVisivelNoNivel() && !modoExame && layoutQuerPainel('grade')) ? 'block' : 'none';
 }
 function renderGrade(){
   const body=$('#gradeBody');
@@ -1842,6 +1946,7 @@ function selecionarAtivo(idx){
   if(pos) return alert('Zere a posição aberta antes de trocar de ativo — cada operação fica só num ativo por vez, igual numa boleta real.');
   ordemPendente=null; renderPendente();
   fimPregaoMostrado=false;
+  linhasDesenho=[]; renderLinhas();
   ativoAtivoIdx=idx;
   const a=mercado[idx];
   candles=a.candles; eventos=a.eventos; sym=a.ticker;
@@ -1855,7 +1960,7 @@ function selecionarAtivo(idx){
 /* ============ Book de Ofertas (livro sintético) ============ */
 function bookVisivelNoNivel(){ return dificuldade==='trader'; } // só no Trader, por enquanto
 function updateBookVisibility(){
-  $('#bookCard').style.display = (bookVisivelNoNivel() && !modoExame) ? 'block' : 'none';
+  $('#bookCard').style.display = (bookVisivelNoNivel() && !modoExame && layoutQuerPainel('book')) ? 'block' : 'none';
 }
 function gerarBookSnapshot(c){
   // preço-base = fechamento do candle; a "casa" (tick) escala com o preço do ativo
@@ -1918,6 +2023,7 @@ function novoPregao(){
   pause();pos=null;
   ordemPendente=null; renderPendente();
   fimPregaoMostrado=false;
+  linhasDesenho=[]; renderLinhas();
   mercado=gerarDia(Math.floor(Math.random()*1e9), dificuldade);
   ativoAtivoIdx=0;
   const a=mercado[0];
@@ -1989,6 +2095,9 @@ function updateAuthUI(){
     if(redirectMsg) redirectMsg.style.display='none';
     app.style.display=''; head.style.display='';
     $('#statusBar').style.display='flex';
+    $('#layoutTabs').style.display='flex';
+    document.querySelectorAll('#layoutTabs button[data-layout]').forEach(x=>x.classList.toggle('on', +x.dataset.layout===layoutAtivo));
+    atualizarTodosPaineis();
     resize(); // o gráfico foi pulado enquanto a tela estava escondida — redesenha agora que tem largura de verdade
   } else {
     window.location.href = LOGIN_URL;
@@ -2268,6 +2377,8 @@ async function loadCloudData(){
       // grava no localStorage e deve sempre vencer — restaurar da nuvem sobrescreveria essa escolha.
       preferencias = {...preferencias, dificuldade};
       if(preferencias.saldos){ saldos=preferencias.saldos; localStorage.setItem('simvwap_saldos',JSON.stringify(saldos)); }
+      if(preferencias.layouts){ layouts=preferencias.layouts; localStorage.setItem('simvwap_layouts',JSON.stringify(layouts)); }
+      if(preferencias.layoutAtivo){ layoutAtivo=preferencias.layoutAtivo; localStorage.setItem('simvwap_layout',String(layoutAtivo)); }
       renderSaldoBadge();
       updRisco();
       if(!preferencias.onboarded) showOnboarding();
