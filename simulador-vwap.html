@@ -266,6 +266,13 @@
   }
 
   .side{display:flex;flex-direction:column;gap:16px}
+  .paineis-fechados{display:flex;flex-wrap:wrap;gap:6px}
+  .paineis-fechados button{
+    background:var(--panel2); border:1px solid var(--border-soft); color:var(--muted);
+    font-size:11px; padding:5px 10px; border-radius:14px; cursor:pointer; font-family:var(--font-ui);
+  }
+  .paineis-fechados button b{color:var(--vwap); font-weight:700; margin-right:3px}
+  .paineis-fechados button:hover{color:var(--text); border-color:var(--vwap)}
   @media(min-width:981px){
     .side{
       position:sticky; top:16px;
@@ -563,6 +570,7 @@
   </section>
 
   <aside class="side">
+    <div id="paineisFechados" class="paineis-fechados" style="display:none"></div>
     <div class="card" id="gradeCard" style="display:none">
       <div class="gate-head">
         <h2 style="padding:0">Grade de Cotações</h2>
@@ -1547,7 +1555,30 @@ function persistirLayouts(){
 }
 function atualizarTodosPaineis(){
   updateTTVisibility(); updateBookVisibility(); updateGradeVisibility(); updateAbasAtivosVisibility();
-  updateNoticiasVisibility(); renderCalendario();
+  updateNoticiasVisibility(); renderCalendario(); renderPaineisFechados();
+}
+// Painéis que o usuário pode fechar no × e reabrir aqui — elegibilidade replica a mesma
+// regra de cada updateXVisibility, só sem o filtro layoutQuerPainel (senão nunca apareceria fechado)
+const PAINEIS_FECHAVEIS = [
+  {key:'grade',      label:'Grade de Cotações', elig:()=>gradeVisivelNoNivel() && !modoExame},
+  {key:'calendario', label:'Calendário',        elig:()=>dificuldade!=='trader'},
+  {key:'noticias',   label:'Notícias',          elig:()=>noticiasVisivelNoNivel() && !modoExame},
+  {key:'tt',         label:'Times & Trades',    elig:()=>ttVisivelNoNivel() && !modoExame},
+  {key:'book',       label:'Book de Ofertas',   elig:()=>bookVisivelNoNivel() && !modoExame},
+];
+function renderPaineisFechados(){
+  const cont=$('#paineisFechados');
+  const fechados = PAINEIS_FECHAVEIS.filter(p=>p.elig() && !layoutQuerPainel(p.key));
+  if(!fechados.length){ cont.style.display='none'; cont.innerHTML=''; return; }
+  cont.style.display='flex';
+  cont.innerHTML = fechados.map(p=>`<button type="button" data-painel="${p.key}"><b>+</b>${p.label}</button>`).join('');
+  cont.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      layouts[layoutAtivo] = layouts[layoutAtivo] || {};
+      delete layouts[layoutAtivo][b.dataset.painel];
+      persistirLayouts(); atualizarTodosPaineis();
+    });
+  });
 }
 document.querySelectorAll('.painel-close').forEach(a=>{
   a.addEventListener('click', e=>{
