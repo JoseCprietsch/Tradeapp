@@ -731,6 +731,8 @@
           <tr><td>Stop</td><td id="posStop"></td></tr>
           <tr><td>Alvo</td><td id="posAlvo"></td></tr>
           <tr><td>Quantidade</td><td id="posQtd"></td></tr>
+          <tr><td>Médio</td><td id="posMedio"></td></tr>
+          <tr><td>Total</td><td id="posTotal"></td></tr>
         </table>
         <button class="btn primary" id="btnFechar" style="width:100%;margin-top:10px">Zerar posição (a mercado, agora)</button>
       </div>
@@ -1206,7 +1208,9 @@ function draw(){
   if(cursor===0){ctx.fillStyle='#5A6378';ctx.font='13px Sora';ctx.textAlign='center';
     ctx.fillText('Gere um novo pregão, importe um CSV ou entre no Modo Exame',W/2,H/2);return;}
   const padR=62, padB=42, volH=70;
-  const chH=H-padB-volH-8, chW=W-padR;
+  const mostrarRsi = dificuldade!=='iniciante';
+  const rsiH = mostrarRsi ? 55 : 0, gapRsi = mostrarRsi ? 10 : 0;
+  const chH=H-padB-volH-rsiH-gapRsi-8, chW=W-padR;
   const bw=6, gap=2, per=bw+gap;
   const candlesAgg=candlesParaExibicao(), cursorAgg=candlesAgg.length;
   const visN=Math.floor(chW/per);
@@ -1249,6 +1253,23 @@ function draw(){
     ctx.fillText(k.t.toTimeString().slice(0,5),x(start+i)+bw/2,H-padB+16);
   }
 
+  // bid/ask simultâneos (melhor compra e melhor venda), só etiqueta — sem linha cheia (mudaria a cada candle)
+  if(bookVisivelNoNivel() && bookAtual && !modoExame){
+    function etiquetaSoTag(p,cor,corTexto){
+      const yy=y(p), txt=fmt(p), tw=ctx.measureText(txt).width+12;
+      ctx.fillStyle=cor;
+      ctx.beginPath();
+      if(ctx.roundRect) ctx.roundRect(chW+2, yy-8, tw, 16, 3); else ctx.rect(chW+2, yy-8, tw, 16);
+      ctx.fill();
+      ctx.fillStyle=corTexto;ctx.font='9.5px "IBM Plex Mono"';ctx.textAlign='left';
+      ctx.fillText(txt, chW+8, yy+3);
+      ctx.font='11px "IBM Plex Mono"';
+    }
+    const bid=bookAtual.compra[0], ask=bookAtual.venda[0];
+    if(bid) etiquetaSoTag(bid.preco,'#21C77D','#0B0E14');
+    if(ask) etiquetaSoTag(ask.preco,'#F04E5E','#fff');
+  }
+
   // VAP — volume por faixa de preço, desenhado atrás dos candles (só no Trader, sem ajuda visual nos outros)
   if(dificuldade==='trader'){
     const nBuckets=22, buckets=new Array(nBuckets).fill(0);
@@ -1289,6 +1310,67 @@ function draw(){
   });
   ctx.stroke();ctx.lineWidth=1;
 
+  // painel de IFR/RSI — escondido no Iniciante
+  if(mostrarRsi){
+    const rsiPeriodo=9;
+    function calcRSI(idxG){
+      let ganhos=0,perdas=0,n=0;
+      for(let j=Math.max(1,idxG-rsiPeriodo+1); j<=idxG; j++){
+        if(!candlesAgg[j]||!candlesAgg[j-1]) continue;
+        const diff=candlesAgg[j].c-candlesAgg[j-1].c;
+        if(diff>=0) ganhos+=diff; else perdas-=diff;
+        n++;
+      }
+      if(n===0) return 50;
+      if(perdas===0) return 100;
+      const rs=ganhos/perdas;
+      return 100-(100/(1+rs));
+    }
+    const rsiTop=chH+8+volH+gapRsi;
+    const rsiY=v=>rsiTop+rsiH-(v/100)*rsiH;
+    ctx.strokeStyle='#1B2233';ctx.fillStyle='#5A6378';ctx.font='9px "IBM Plex Mono"';ctx.textAlign='left';
+    [30,50,70].forEach(v=>{
+      const ry=rsiY(v);
+      ctx.beginPath();ctx.moveTo(0,ry);ctx.lineTo(chW,ry);ctx.stroke();
+      ctx.fillText(String(v),chW+6,ry+3);
+    });
+    const pts=[];
+    view.forEach((k,i)=>{
+      const idxG=start+i; if(idxG<1) return;
+      pts.push([x(idxG)+bw/2, rsiY(calcRSI(idxG))]);
+    });
+    if(pts.length>1){
+      ctx.strokeStyle='#F2994A';ctx.lineWidth=1.2;ctx.beginPath();
+      pts.forEach(([px,py],i)=> i?ctx.lineTo(px,py):ctx.moveTo(px,py));
+      ctx.stroke();ctx.lineWidth=1;
+    }
+    const rsiAtual=calcRSI(cursorAgg-1);
+    ctx.fillStyle='#F2994A';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
+    ctx.fillText('IFR (RSI) ['+rsiPeriodo+'] '+rsiAtual.toFixed(2),4,rsiTop+11);
+    ctx.font='11px "IBM Plex Mono"';
+  }
+
+  // médias móveis (MA9/21/50) — atrás dos candles, escondidas no Iniciante
+  if(dificuldade!=='iniciante'){
+    function desenharMA(periodo, cor){
+      const pts=[];
+      view.forEach((k,i)=>{
+        const idxG=start+i;
+        if(idxG+1<periodo) return;
+        const janela=candlesAgg.slice(idxG-periodo+1,idxG+1);
+        const media=janela.reduce((s,c)=>s+c.c,0)/periodo;
+        pts.push([x(idxG)+bw/2, y(media)]);
+      });
+      if(pts.length<2) return;
+      ctx.strokeStyle=cor; ctx.lineWidth=1.1; ctx.beginPath();
+      pts.forEach(([px,py],i)=> i?ctx.lineTo(px,py):ctx.moveTo(px,py));
+      ctx.stroke(); ctx.lineWidth=1;
+    }
+    desenharMA(9,'#B7A6FF');
+    desenharMA(21,'#2ECC8F');
+    desenharMA(50,'#F5B841');
+  }
+
   // candles
   view.forEach((k,i)=>{
     const cx=x(start+i)+bw/2, up=k.c>=k.o;
@@ -1312,7 +1394,7 @@ function draw(){
     if(evIdxAgg<start||ev.idx>=cursor+60||ev.idx>=candles.length)return;
     const evx=x(evIdxAgg)+bw/2;
     ctx.setLineDash([4,3]);ctx.strokeStyle='#7C5CFF';ctx.beginPath();
-    ctx.moveTo(evx,0);ctx.lineTo(evx,chH+8+volH);ctx.stroke();ctx.setLineDash([]);
+    ctx.moveTo(evx,0);ctx.lineTo(evx,chH+8+volH+gapRsi+rsiH);ctx.stroke();ctx.setLineDash([]);
     ctx.save();ctx.translate(evx-4,10);ctx.rotate(0);
     ctx.fillStyle='#B7A6FF';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
     ctx.fillText('⚠ catalisador',4,0);
@@ -1382,7 +1464,7 @@ function draw(){
   if(hoverIdx>=start&&hoverIdx<cursorAgg){
     const k=candlesAgg[hoverIdx],cx=x(hoverIdx)+bw/2;
     ctx.strokeStyle='#3A476388';ctx.setLineDash([3,3]);
-    ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,chH+8+volH);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,chH+8+volH+gapRsi+rsiH);ctx.stroke();ctx.setLineDash([]);
     renderOhlcReadout(k);
   } else renderOhlcReadout(candlesAgg[cursorAgg-1]);
   updLiveBtn();
@@ -1749,6 +1831,8 @@ function updPos(){
   $('#posStop').textContent=fmt(pos.stop);
   $('#posAlvo').textContent=fmt(pos.alvo);
   $('#posQtd').textContent=pos.qtd.toLocaleString('pt-BR');
+  $('#posMedio').textContent=fmt(pos.entrada); // preço médio = entrada, já que não suportamos scale-in
+  $('#posTotal').textContent=fmtBRL(pos.qtd*px);
   renderSessao();
 }
 /* ============ resultado do pregão (sessão atual) ============ */
