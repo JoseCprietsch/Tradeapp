@@ -140,3 +140,42 @@ Nelogica (docs oficiais: Grade de Cotações, Livro de Ofertas, SuperDOM,
 Times & Trades, Medidores de Pressão, Workspaces), ModalMais, Toro,
 InfoMoney, Traders.com.br, Portal do Trader. Screenshots reais do
 Profit Pro 5.5 fornecidos pelo José.
+
+---
+
+## v3 — auditoria completa contra o print real (18/08/2026)
+
+Varredura região por região do print real fornecido pelo José, comparando
+com o que existe hoje. Tudo que faltava, com julgamento sobre o que vale
+construir.
+
+| # | Item do print real | Vale construir? | Por quê |
+|---|---|---|---|
+| 1 | 4 médias móveis coloridas no gráfico | ✅ Sim — médio esforço | Leitura técnica real, valor pedagógico direto |
+| 2 | Abas de múltiplos ativos abertos ao mesmo tempo | ⚠️ Grande — decisão de arquitetura | Muda o modelo "1 posição por vez"; avaliar com calma antes |
+| 3 | Grid C Stop/V Limite/C Mercado/V Mercado | ⚠️ Médio-alto risco | Redesenho da interação da boleta, já testada e estável |
+| 4 | Readout OHLC+Ajuste sempre visível (não só hover) | ✅ Sim — baixo esforço | Pequena mudança, ganho de realismo direto |
+| 5 | Barra de ferramentas de desenho completa (20 ícones) | ❌ Não, por enquanto | Complexidade altíssima pra valor marginal — 1 linha horizontal já cobre o essencial pedagógico (suporte/resistência) |
+| 6 | "Ponto de Cobertura" (limite de perda da conta) | ✅ Sim — baixo esforço | Reforça gestão de risco a nível de conta, não só por trade — liga direto com o sistema de saldo/meta que já existe |
+| 7 | Bid e Ask simultâneos (dois preços, não um) | ✅ Sim — médio esforço | Mais realista que só "último preço"; o Book de Ofertas já tem esse dado, só falta refletir no gráfico |
+| 8 | Relógio flutuante solto | ❌ Não | Puramente estético, zero valor pedagógico, e já temos o relógio na barra de status |
+| 9 | Média móvel sobre o volume | ✅ Sim — baixo esforço | Reaproveita dado que já existe, esforço pequeno |
+| 10 | Painel de IFR/RSI | ✅ Sim — médio esforço | Indicador técnico padrão, ensina divergência/sobrecompra-sobrevenda |
+| 11 | Multi-dia contínuo no eixo de tempo | ❌ Não, por enquanto | Contradiz a regra de "sem posição overnight" que já ensinamos; múltiplos dias implicaria em persistência de gráfico que não existe no nosso modelo |
+| 12 | Boleta: campo "Preço", "Estrat.", conta c/ cadeado, Total, Médio | ⚠️ Parcial | "Total" e "Médio" fazem sentido e são baratos; "Estrat." e conta/cadeado são puramente decorativos pro nosso caso |
+| 13 | Contador regressivo (03:35) | ✅ Sim — baixo esforço | Fácil, reforça a pressão real de tempo do pregão |
+
+### Ordem sugerida (só os itens marcados ✅, do mais barato pro mais caro)
+
+1. Readout OHLC persistente (item 4)
+2. Contador regressivo (item 13)
+3. "Ponto de Cobertura" — limite de perda da conta (item 6)
+4. Média móvel sobre volume (item 9)
+5. Médias móveis no candle (item 1)
+6. Bid/Ask simultâneos no gráfico (item 7)
+7. Total + Médio na boleta (parte do item 12)
+8. Painel de IFR/RSI (item 10)
+
+Itens 2 e 3 (abas múltiplas, grid de botões) ficam como **decisão separada**,
+não entram nessa leva — são mudanças estruturais que merecem conversa própria
+antes de codar.
