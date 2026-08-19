@@ -101,6 +101,15 @@
   .btn.exam{background:#7C5CFF22;border-color:#7C5CFF;color:#B7A6FF}
   .btn.exam.on{background:#7C5CFF;color:#0B0E14}
   #btnLinha.on{background:var(--vwap);border-color:var(--vwap);color:#1A1405}
+  #painelIndicadores{
+    position:absolute; top:calc(100% + 6px); right:0; z-index:50; min-width:210px;
+    background:var(--panel-solid); border:1px solid var(--border); border-radius:10px;
+    padding:10px 12px; box-shadow:0 12px 30px -10px #000000A0;
+  }
+  #painelIndicadores label{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; padding:6px 2px; cursor:pointer;
+  }
+  #painelIndicadores input{width:auto}
 
   /* ---- modal de boas-vindas (onboarding) ---- */
   #onboardModal, #gameOverModal, #vitoriaModal{
@@ -383,6 +392,17 @@
     <button class="btn" id="btnNovo" title="Gera um novo pregão sintético">Novo pregão</button>
     <button class="btn ghost" id="btnCsv" title="Importar candles reais (CSV exportado do TradingView)">Importar CSV</button>
     <button class="btn ghost" id="btnLinha" title="Clique no gráfico pra marcar um nível de suporte/resistência">📏 Linha</button>
+    <div style="position:relative">
+      <button class="btn ghost" id="btnIndicadores" title="Escolher quais estudos aparecem no gráfico">📊 Indicadores</button>
+      <div id="painelIndicadores" style="display:none">
+        <label><input type="checkbox" data-ind="ma9"> Média Móvel 9 <span style="color:#B7A6FF">●</span></label>
+        <label><input type="checkbox" data-ind="ma21"> Média Móvel 21 <span style="color:#2ECC8F">●</span></label>
+        <label><input type="checkbox" data-ind="ma50"> Média Móvel 50 <span style="color:#F5B841">●</span></label>
+        <label><input type="checkbox" data-ind="volMa"> Média Móvel do Volume <span style="color:#2ECC8F">●</span></label>
+        <label><input type="checkbox" data-ind="rsi"> IFR (RSI)</label>
+        <label><input type="checkbox" data-ind="vap"> VAP (Volume at Price)</label>
+      </div>
+    </div>
     <input type="file" id="fileCsv" accept=".csv,text/csv">
     <button class="btn primary" id="btnPlay">▶ Reproduzir</button>
     <button class="btn" id="btnStep" title="Avança 1 candle (barra de espaço)">+1</button>
@@ -1208,7 +1228,7 @@ function draw(){
   if(cursor===0){ctx.fillStyle='#5A6378';ctx.font='13px Sora';ctx.textAlign='center';
     ctx.fillText('Gere um novo pregão, importe um CSV ou entre no Modo Exame',W/2,H/2);return;}
   const padR=62, padB=42, volH=70;
-  const mostrarRsi = dificuldade!=='iniciante';
+  const mostrarRsi = dificuldade!=='iniciante' && indicadores.rsi;
   const rsiH = mostrarRsi ? 55 : 0, gapRsi = mostrarRsi ? 10 : 0;
   const chH=H-padB-volH-rsiH-gapRsi-8, chW=W-padR;
   const bw=6, gap=2, per=bw+gap;
@@ -1270,8 +1290,8 @@ function draw(){
     if(ask) etiquetaSoTag(ask.preco,'#F04E5E','#fff');
   }
 
-  // VAP — volume por faixa de preço, desenhado atrás dos candles (só no Trader, sem ajuda visual nos outros)
-  if(dificuldade==='trader'){
+  // VAP — volume por faixa de preço, desenhado atrás dos candles (só no Trader, e só se ligado)
+  if(dificuldade==='trader' && indicadores.vap){
     const nBuckets=22, buckets=new Array(nBuckets).fill(0);
     view.forEach(k=>{
       const tp=(k.h+k.l+k.c)/3;
@@ -1299,16 +1319,18 @@ function draw(){
     ctx.fillRect(vx,chH+8+(volH-vh),bw,vh);
   });
   // média móvel do volume (20 períodos)
-  const volMaN=20;
-  ctx.strokeStyle='#2ECC8F';ctx.lineWidth=1.3;ctx.beginPath();
-  view.forEach((k,i)=>{
-    const idxG=start+i;
-    const janela=candlesAgg.slice(Math.max(0,idxG-volMaN+1),idxG+1);
-    const media=janela.reduce((s,c)=>s+c.v,0)/janela.length;
-    const vx=x(idxG)+bw/2, vy=chH+8+(volH-Math.min(volH,(media/vMax)*volH));
-    i?ctx.lineTo(vx,vy):ctx.moveTo(vx,vy);
-  });
-  ctx.stroke();ctx.lineWidth=1;
+  if(dificuldade!=='iniciante' && indicadores.volMa){
+    const volMaN=20;
+    ctx.strokeStyle='#2ECC8F';ctx.lineWidth=1.3;ctx.beginPath();
+    view.forEach((k,i)=>{
+      const idxG=start+i;
+      const janela=candlesAgg.slice(Math.max(0,idxG-volMaN+1),idxG+1);
+      const media=janela.reduce((s,c)=>s+c.v,0)/janela.length;
+      const vx=x(idxG)+bw/2, vy=chH+8+(volH-Math.min(volH,(media/vMax)*volH));
+      i?ctx.lineTo(vx,vy):ctx.moveTo(vx,vy);
+    });
+    ctx.stroke();ctx.lineWidth=1;
+  }
 
   // painel de IFR/RSI — escondido no Iniciante
   if(mostrarRsi){
@@ -1350,8 +1372,8 @@ function draw(){
     ctx.font='11px "IBM Plex Mono"';
   }
 
-  // médias móveis (MA9/21/50) — atrás dos candles, escondidas no Iniciante
-  if(dificuldade!=='iniciante'){
+  // médias móveis (MA9/21/50) — atrás dos candles, escondidas no Iniciante e desligadas por padrão
+  if(dificuldade!=='iniciante' && (indicadores.ma9||indicadores.ma21||indicadores.ma50)){
     function desenharMA(periodo, cor){
       const pts=[];
       view.forEach((k,i)=>{
@@ -1366,9 +1388,9 @@ function draw(){
       pts.forEach(([px,py],i)=> i?ctx.lineTo(px,py):ctx.moveTo(px,py));
       ctx.stroke(); ctx.lineWidth=1;
     }
-    desenharMA(9,'#B7A6FF');
-    desenharMA(21,'#2ECC8F');
-    desenharMA(50,'#F5B841');
+    if(indicadores.ma9) desenharMA(9,'#B7A6FF');
+    if(indicadores.ma21) desenharMA(21,'#2ECC8F');
+    if(indicadores.ma50) desenharMA(50,'#F5B841');
   }
 
   // candles
@@ -1474,6 +1496,28 @@ function draw(){
 let dragging=false, dragStartX=0, dragStartOffset=0, dragMoved=false;
 let ultimoLo=0, ultimoHi=1, ultimoChH=1;
 let modoDesenho=false;
+let indicadores = JSON.parse(localStorage.getItem('simvwap_indicadores')||'null') || {ma9:false,ma21:false,ma50:false,volMa:false,rsi:false,vap:false};
+function persistirIndicadores(){
+  localStorage.setItem('simvwap_indicadores', JSON.stringify(indicadores));
+  preferencias = {...preferencias, indicadores};
+  if(currentUser) cloudSaveConfigDebounced();
+}
+document.querySelectorAll('#painelIndicadores input[data-ind]').forEach(cb=>{
+  cb.checked = !!indicadores[cb.dataset.ind];
+  cb.addEventListener('change', ()=>{
+    indicadores[cb.dataset.ind]=cb.checked;
+    persistirIndicadores(); draw();
+  });
+});
+$('#btnIndicadores').addEventListener('click', e=>{
+  e.stopPropagation();
+  $('#painelIndicadores').style.display = $('#painelIndicadores').style.display==='block' ? 'none' : 'block';
+});
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#painelIndicadores') && e.target.id!=='btnIndicadores'){
+    $('#painelIndicadores').style.display='none';
+  }
+});
 let layoutAtivo = +(localStorage.getItem('simvwap_layout')||1);
 let layouts = JSON.parse(localStorage.getItem('simvwap_layouts')||'null') || {1:{},2:{},3:{}};
 function layoutQuerPainel(chave){
@@ -2562,6 +2606,10 @@ async function loadCloudData(){
       if(preferencias.saldos){ saldos=preferencias.saldos; localStorage.setItem('simvwap_saldos',JSON.stringify(saldos)); }
       if(preferencias.layouts){ layouts=preferencias.layouts; localStorage.setItem('simvwap_layouts',JSON.stringify(layouts)); }
       if(preferencias.layoutAtivo){ layoutAtivo=preferencias.layoutAtivo; localStorage.setItem('simvwap_layout',String(layoutAtivo)); }
+      if(preferencias.indicadores){
+        indicadores=preferencias.indicadores; localStorage.setItem('simvwap_indicadores',JSON.stringify(indicadores));
+        document.querySelectorAll('#painelIndicadores input[data-ind]').forEach(cb=>{ cb.checked=!!indicadores[cb.dataset.ind]; });
+      }
       renderSaldoBadge();
       updRisco();
       if(!preferencias.onboarded) showOnboarding();
