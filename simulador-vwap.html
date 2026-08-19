@@ -303,17 +303,15 @@
   .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
   .frow.full{grid-template-columns:1fr}
   .flabel{font-size:11px;color:var(--muted);margin-bottom:3px;display:block}
-  .sideSel{display:flex;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
-  .sideSel button{flex:1;border:0;background:transparent;color:var(--muted);padding:9px 0;font-weight:700;font-size:13px}
-  .sideSel button.buy.on{background:var(--alta-dim);color:var(--alta)}
-  .sideSel button.sell.on{background:var(--baixa-dim);color:var(--baixa)}
   .riskline{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:12px;color:var(--muted);margin:2px 0}
   .riskline b{color:var(--text)}
   .riskline .bad{color:var(--baixa)}
   .riskline .good{color:var(--alta)}
-  #btnOrdem{width:100%;margin-top:10px;padding:11px;border-radius:8px;font-size:14px}
-  #btnOrdem.buy{background:var(--alta);border-color:var(--alta);color:#06281A}
-  #btnOrdem.sell{background:var(--baixa);border-color:var(--baixa);color:#2E070B}
+  #gridOrdem{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+  .btn-ordem{padding:11px 4px;border-radius:8px;font-size:12.5px;font-weight:700;border:1px solid transparent}
+  .btn-ordem.compra{background:var(--alta);border-color:var(--alta);color:#06281A}
+  .btn-ordem.venda{background:var(--baixa);border-color:var(--baixa);color:#2E070B}
+  .btn-ordem:disabled{opacity:.35;cursor:not-allowed}
 
   .pos{font-family:var(--font-mono);font-size:13px}
   .pos .big{font-size:22px;font-weight:600;margin:4px 0}
@@ -653,20 +651,7 @@
       <h2>Boleta simulada</h2>
       <div class="body acc-body">
         <div class="frow full">
-          <div class="sideSel">
-            <button class="buy on" id="selBuy">COMPRA</button>
-            <button class="sell" id="selSell">VENDA</button>
-          </div>
-        </div>
-        <div class="frow full">
-          <div class="sideSel" id="tipoOrdemSel" style="grid-template-columns:repeat(3,1fr)">
-            <button class="on" data-tipo="mercado" style="background:var(--panel2);color:var(--text)">Mercado</button>
-            <button data-tipo="limitada" style="background:var(--panel2);color:var(--text)">Limitada</button>
-            <button data-tipo="stop" style="background:var(--panel2);color:var(--text)">Stop entrada</button>
-          </div>
-        </div>
-        <div class="frow full" id="rowGatilho" style="display:none">
-          <div><span class="flabel" id="lblGatilho">Preço de disparo</span><input type="number" id="inGatilho" step="0.01" min="0"></div>
+          <div><span class="flabel">Preço (gatilho — só usado em Limitada/Stop)</span><input type="number" id="inGatilho" step="0.01" min="0"></div>
         </div>
         <div class="frow">
           <div><span class="flabel">Stop (distância de risco, em R$)</span><input type="number" id="inStop" step="0.01" min="0"></div>
@@ -709,7 +694,14 @@
             </div>
           </div>
         </div>
-        <button class="btn buy" id="btnOrdem" disabled>Enviar ordem</button>
+        <div id="gridOrdem">
+          <button class="btn-ordem compra" data-lado="buy" data-tipo="mercado" disabled>C Mercado</button>
+          <button class="btn-ordem venda" data-lado="sell" data-tipo="mercado" disabled>V Mercado</button>
+          <button class="btn-ordem compra" data-lado="buy" data-tipo="limitada" disabled>C Limitada</button>
+          <button class="btn-ordem venda" data-lado="sell" data-tipo="limitada" disabled>V Limitada</button>
+          <button class="btn-ordem compra" data-lado="buy" data-tipo="stop" disabled>C Stop</button>
+          <button class="btn-ordem venda" data-lado="sell" data-tipo="stop" disabled>V Stop</button>
+        </div>
       </div>
     </div>
 
@@ -1192,11 +1184,14 @@ function renderCrit(){
 function critMarcados(){
   return [...document.querySelectorAll('#critList input[type=checkbox]')].map(cb=>cb.checked);
 }
+function setGridOrdemDisabled(dis){
+  document.querySelectorAll('#gridOrdem button').forEach(b=>b.disabled=dis);
+}
 function atualizarGate(){
   const gateAtivo = dificuldade==='iniciante';
   $('#gateCard').style.display = (gateAtivo && !modoExame) ? '' : 'none';
   if(!gateAtivo){
-    $('#btnOrdem').disabled = !!pos || cursor===0;
+    setGridOrdemDisabled(!!pos || cursor===0);
     return;
   }
   const marks=critMarcados();
@@ -1206,7 +1201,7 @@ function atualizarGate(){
   if(editandoCrit){gs.textContent='Editando critérios…';gs.classList.remove('open');}
   else if(ok){gs.textContent='✓ Setup confirmado — ordem liberada';gs.classList.add('open');if(window.innerWidth<=860)$('#cardOrdem').classList.remove('collapsed');}
   else{gs.textContent=`Confirme os ${marks.length} critérios para liberar a ordem`;gs.classList.remove('open');}
-  $('#btnOrdem').disabled = !ok || !!pos || cursor===0;
+  setGridOrdemDisabled(!ok || !!pos || cursor===0);
 }
 $('#critList').addEventListener('change',atualizarGate);
 $('#btnEditCrit').addEventListener('click',()=>{
@@ -1705,9 +1700,10 @@ function avisoAtalho(msg){
 }
 function atalhoLado(l){
   setLado(l);
+  tipoOrdem='mercado';
   const stD=+$('#inStop').value, alD=+$('#inAlvo').value;
   if(cursor===0||!candles.length){return;}
-  if(stD>0 && alD>0){ $('#btnOrdem').click(); }
+  if(stD>0 && alD>0){ enviarOrdem(); }
   else { $('#inStop').focus(); avisoAtalho((l==='buy'?'C':'V')+' — preencha Stop/Alvo pra completar a ordem'); }
 }
 function atalhoInverter(){
@@ -1722,15 +1718,7 @@ function atalhoInverter(){
 }
 
 /* ============ boleta ============ */
-$('#selBuy').addEventListener('click',()=>setLado('buy'));
-$('#selSell').addEventListener('click',()=>setLado('sell'));
-function setLado(l){lado=l;
-  $('#selBuy').classList.toggle('on',l==='buy');
-  $('#selSell').classList.toggle('on',l==='sell');
-  const b=$('#btnOrdem');b.classList.toggle('buy',l==='buy');b.classList.toggle('sell',l==='sell');
-  b.textContent=l==='buy'?'Enviar ordem de compra':'Enviar ordem de venda';
-  updRisco();
-}
+function setLado(l){lado=l; updRisco();}
 const RISCO_KEY='simvwap_riscopct';
 $('#inCapital').readOnly = true;
 $('#inCapital').title = 'Reflete seu saldo real neste nível — não é editável, muda conforme suas operações fecham.';
@@ -1770,21 +1758,10 @@ function abrirPosicaoAgora(px, lado, q, stD, alD, emo, crit){
        emocional:emo,criterios:crit};
   atualizarGate();updPos();draw();
 }
-$('#tipoOrdemSel').addEventListener('click',e=>{
-  const b=e.target.closest('button');if(!b)return;
-  tipoOrdem=b.dataset.tipo;
-  document.querySelectorAll('#tipoOrdemSel button').forEach(x=>x.classList.toggle('on',x===b));
-  $('#rowGatilho').style.display = tipoOrdem==='mercado' ? 'none' : 'block';
-  $('#lblGatilho').textContent = tipoOrdem==='limitada'
-    ? 'Preço de disparo (executa se o mercado voltar até aqui)'
-    : 'Preço de disparo (executa se o mercado romper aqui)';
-  const nomes={mercado:'Enviar ordem',limitada:'Enviar ordem limitada',stop:'Enviar ordem stop de entrada'};
-  $('#btnOrdem').textContent = nomes[tipoOrdem];
-});
 document.querySelectorAll('[data-qtd]').forEach(b=>{
   b.addEventListener('click',()=>{ $('#inQtd').value=b.dataset.qtd; updRisco(); });
 });
-$('#btnOrdem').addEventListener('click',()=>{
+function enviarOrdem(){
   const q=+$('#inQtd').value||0, stD=+$('#inStop').value, alD=+$('#inAlvo').value;
   const emo=$('#inEmocional').value;
   const px=candles[cursor-1].c, dir=lado==='buy'?1:-1;
@@ -1804,11 +1781,14 @@ $('#btnOrdem').addEventListener('click',()=>{
     return;
   }
   const gat=+$('#inGatilho').value;
-  if(!gat||gat<=0)return alert('Preencha o preço de disparo.');
+  if(!gat||gat<=0)return alert('Preencha o preço de disparo (gatilho).');
   if(tipoOrdem==='limitada' && (gat-px)*dir>0)return alert('Ordem limitada de '+(lado==='buy'?'compra precisa de um preço de disparo ABAIXO':'venda precisa de um preço de disparo ACIMA')+' do preço atual ('+fmt(px)+') — é assim que funciona: espera o mercado voltar até um preço melhor.');
   if(tipoOrdem==='stop' && (gat-px)*dir<0)return alert('Ordem stop de entrada de '+(lado==='buy'?'compra precisa de um preço de disparo ACIMA':'venda precisa de um preço de disparo ABAIXO')+' do preço atual ('+fmt(px)+') — é assim que funciona: só entra se o mercado confirmar o rompimento.');
   ordemPendente={tipo:tipoOrdem, lado, gatilho:gat, qtd:q, stD, alD, emo, criterios:crit};
   renderPendente();
+}
+document.querySelectorAll('#gridOrdem button').forEach(b=>{
+  b.addEventListener('click', ()=>{ lado=b.dataset.lado; tipoOrdem=b.dataset.tipo; enviarOrdem(); });
 });
 $('#btnCancelarPendente').addEventListener('click',()=>{ ordemPendente=null; renderPendente(); });
 function renderPendente(){
