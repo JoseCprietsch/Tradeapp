@@ -1302,25 +1302,113 @@ function resize(){
 }
 window.addEventListener('resize',resize);
 
+function pontoParaXY(p, x, y, bw, idxMaisProximo){
+  if(p.px!==undefined) return {x:p.px, y:p.py};
+  return {x:x(idxMaisProximo(p.t))+bw/2, y:y(p.preco)};
+}
+function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
+  const pxs = es.pts.map(p=>pontoParaXY(p,x,y,bw,idxMaisProximo));
+  ctx.lineWidth=1.2; ctx.globalAlpha = preview ? 0.6 : 1;
+  if(es.tipo==='h'){
+    const yy=pxs[0].y;
+    ctx.setLineDash([2,4]);ctx.strokeStyle='#8B94A8';
+    ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(chW,yy);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#8B94A8';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
+    ctx.fillText(es.pts[0].px!==undefined?'':fmt(es.pts[0].preco),4,yy-4);
+  } else if(es.tipo==='v'){
+    const xx=pxs[0].x;
+    ctx.setLineDash([2,4]);ctx.strokeStyle='#8B94A8';
+    ctx.beginPath();ctx.moveTo(xx,0);ctx.lineTo(xx,chH);ctx.stroke();ctx.setLineDash([]);
+  } else if(es.tipo==='tendencia'){
+    ctx.setLineDash([]);ctx.strokeStyle='#D9A441';
+    ctx.beginPath();ctx.moveTo(pxs[0].x,pxs[0].y);ctx.lineTo(pxs[1].x,pxs[1].y);ctx.stroke();
+  } else if(es.tipo==='seta'){
+    ctx.setLineDash([]);ctx.strokeStyle='#D9A441';ctx.lineWidth=1.6;
+    ctx.beginPath();ctx.moveTo(pxs[0].x,pxs[0].y);ctx.lineTo(pxs[1].x,pxs[1].y);ctx.stroke();
+    const ang=Math.atan2(pxs[1].y-pxs[0].y, pxs[1].x-pxs[0].x), tam=9;
+    ctx.beginPath();
+    ctx.moveTo(pxs[1].x,pxs[1].y);
+    ctx.lineTo(pxs[1].x-tam*Math.cos(ang-Math.PI/6), pxs[1].y-tam*Math.sin(ang-Math.PI/6));
+    ctx.moveTo(pxs[1].x,pxs[1].y);
+    ctx.lineTo(pxs[1].x-tam*Math.cos(ang+Math.PI/6), pxs[1].y-tam*Math.sin(ang+Math.PI/6));
+    ctx.stroke();
+  } else if(es.tipo==='retangulo'){
+    const rx=Math.min(pxs[0].x,pxs[1].x), ry=Math.min(pxs[0].y,pxs[1].y);
+    const rw=Math.abs(pxs[1].x-pxs[0].x), rh=Math.abs(pxs[1].y-pxs[0].y);
+    ctx.setLineDash([]);
+    ctx.fillStyle='#D9A44122'; ctx.fillRect(rx,ry,rw,rh);
+    ctx.strokeStyle='#D9A441'; ctx.strokeRect(rx,ry,rw,rh);
+  } else if(es.tipo==='lapis'){
+    ctx.setLineDash([]);ctx.strokeStyle='#D9A441';ctx.lineWidth=1.6;
+    ctx.lineJoin='round';ctx.lineCap='round';
+    ctx.beginPath();
+    pxs.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+    ctx.stroke();
+  } else if(es.tipo==='fib'){
+    const xIni=Math.min(pxs[0].x,pxs[1].x);
+    const temPreco = es.pts[0].px===undefined;
+    ctx.setLineDash([2,3]);
+    [0,0.236,0.382,0.5,0.618,0.786,1].forEach(nv=>{
+      const yy = pxs[0].y + (pxs[1].y-pxs[0].y)*nv;
+      const label = temPreco
+        ? `${(nv*100).toFixed(1)}% ${fmt(es.pts[0].preco+(es.pts[1].preco-es.pts[0].preco)*nv)}`
+        : `${(nv*100).toFixed(1)}%`;
+      ctx.strokeStyle='#8B94A855';
+      ctx.beginPath();ctx.moveTo(xIni,yy);ctx.lineTo(chW,yy);ctx.stroke();
+      ctx.fillStyle='#B7A6FF';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
+      ctx.fillText(label, xIni+4, yy-3);
+    });
+    ctx.setLineDash([]);
+  }
+  ctx.globalAlpha=1;
+}
+function renderTodosEstudos(x,y,bw,chW,chH,idxMaisProximo){
+  estudos.forEach(es=>renderEstudoNoCanvas(es,false,x,y,bw,chW,chH,idxMaisProximo));
+  if(formaEmAndamento && formaEmAndamento.p2){
+    renderEstudoNoCanvas({tipo:formaEmAndamento.tipo, pts:[formaEmAndamento.p1, formaEmAndamento.p2]}, true, x,y,bw,chW,chH,idxMaisProximo);
+  }
+  if(desenhandoLivre && ferramentaAtiva==='lapis' && pontosTemp.length>1){
+    renderEstudoNoCanvas({tipo:'lapis', pts:pontosTemp}, true, x,y,bw,chW,chH,idxMaisProximo);
+  }
+}
 function draw(){
   const W=cv.clientWidth,H=cv.clientHeight||520;
   ctx.clearRect(0,0,W,H);
   if(W<=0||H<=0) return; // canvas ainda escondido (ex: aguardando verificação de login) — nada pra desenhar ainda
-  if(cursor===0){ctx.fillStyle='#5A6378';ctx.font='13px Sora';ctx.textAlign='center';
-    ctx.fillText('Gere um novo pregão, importe um CSV ou entre no Modo Exame',W/2,H/2);return;}
   const padR=62, padB=42, volH=70;
-  const mostrarRsi = dificuldade!=='iniciante' && indicadores.rsi;
+  const mostrarRsi = cursor>0 && dificuldade!=='iniciante' && indicadores.rsi;
   const rsiH = mostrarRsi ? 55 : 0, gapRsi = mostrarRsi ? 10 : 0;
   const chH=H-padB-volH-rsiH-gapRsi-8, chW=W-padR;
   const bw=6, gap=2, per=bw+gap;
   const candlesAgg=candlesParaExibicao(), cursorAgg=candlesAgg.length;
+  function idxMaisProximo(ts){
+    let best=0, bestDiff=Infinity;
+    for(let i=0;i<candlesAgg.length;i++){
+      const d=Math.abs(candlesAgg[i].t.getTime()-ts);
+      if(d<bestDiff){bestDiff=d; best=i;}
+    }
+    return best;
+  }
+  if(cursor===0){
+    // sem pregão gerado ainda — não tem preço/candle pra ancorar nada, mas o painel continua
+    // desenhável: os estudos usam coordenada de pixel direto (ver capturarPonto/pixelDoPonto)
+    ultimoLo=0; ultimoHi=100; ultimoChH=chH;
+    renderTodosEstudos(i=>i, p=>p, bw, chW, chH, idxMaisProximo);
+    ctx.fillStyle='#5A6378';ctx.font='13px Sora';ctx.textAlign='center';
+    ctx.fillText('Gere um novo pregão, importe um CSV ou entre no Modo Exame',W/2,H/2);
+    return;
+  }
   const visN=Math.floor(chW/per);
   const maxOffset=Math.max(0,cursorAgg-visN);
   viewOffset=Math.min(Math.max(0,viewOffset),maxOffset);
   const end=cursorAgg-viewOffset;
   const start=Math.max(0,end-visN);
   const view=candlesAgg.slice(start,end);
-  if(!view.length) return; // proteção extra: nada pra desenhar nesse recorte
+  if(!view.length){
+    ultimoLo=0; ultimoHi=100; ultimoChH=chH;
+    renderTodosEstudos(i=>i, p=>p, bw, chW, chH, idxMaisProximo);
+    return; // proteção extra: nada pra desenhar nesse recorte
+  }
   let lo=Infinity,hi=-Infinity,vMax=0;
   view.forEach(k=>{lo=Math.min(lo,k.l,k.vwap);hi=Math.max(hi,k.h,k.vwap);vMax=Math.max(vMax,k.v)});
   if(pos){
@@ -1505,76 +1593,7 @@ function draw(){
   });
 
   // estudos desenhados pelo usuário (linhas, retângulos, fibonacci, lápis...)
-  function idxMaisProximo(ts){
-    let best=0, bestDiff=Infinity;
-    for(let i=0;i<candlesAgg.length;i++){
-      const d=Math.abs(candlesAgg[i].t.getTime()-ts);
-      if(d<bestDiff){bestDiff=d; best=i;}
-    }
-    return best;
-  }
-  function renderEstudo(es, preview){
-    const pxs = es.pts.map(p=>({x:x(idxMaisProximo(p.t))+bw/2, y:y(p.preco)}));
-    ctx.lineWidth=1.2; ctx.globalAlpha = preview ? 0.6 : 1;
-    if(es.tipo==='h'){
-      const yy=pxs[0].y;
-      ctx.setLineDash([2,4]);ctx.strokeStyle='#8B94A8';
-      ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(chW,yy);ctx.stroke();ctx.setLineDash([]);
-      ctx.fillStyle='#8B94A8';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
-      ctx.fillText(fmt(es.pts[0].preco),4,yy-4);
-    } else if(es.tipo==='v'){
-      const xx=pxs[0].x;
-      ctx.setLineDash([2,4]);ctx.strokeStyle='#8B94A8';
-      ctx.beginPath();ctx.moveTo(xx,0);ctx.lineTo(xx,chH);ctx.stroke();ctx.setLineDash([]);
-    } else if(es.tipo==='tendencia'){
-      ctx.setLineDash([]);ctx.strokeStyle='#D9A441';
-      ctx.beginPath();ctx.moveTo(pxs[0].x,pxs[0].y);ctx.lineTo(pxs[1].x,pxs[1].y);ctx.stroke();
-    } else if(es.tipo==='seta'){
-      ctx.setLineDash([]);ctx.strokeStyle='#D9A441';ctx.lineWidth=1.6;
-      ctx.beginPath();ctx.moveTo(pxs[0].x,pxs[0].y);ctx.lineTo(pxs[1].x,pxs[1].y);ctx.stroke();
-      const ang=Math.atan2(pxs[1].y-pxs[0].y, pxs[1].x-pxs[0].x), tam=9;
-      ctx.beginPath();
-      ctx.moveTo(pxs[1].x,pxs[1].y);
-      ctx.lineTo(pxs[1].x-tam*Math.cos(ang-Math.PI/6), pxs[1].y-tam*Math.sin(ang-Math.PI/6));
-      ctx.moveTo(pxs[1].x,pxs[1].y);
-      ctx.lineTo(pxs[1].x-tam*Math.cos(ang+Math.PI/6), pxs[1].y-tam*Math.sin(ang+Math.PI/6));
-      ctx.stroke();
-    } else if(es.tipo==='retangulo'){
-      const rx=Math.min(pxs[0].x,pxs[1].x), ry=Math.min(pxs[0].y,pxs[1].y);
-      const rw=Math.abs(pxs[1].x-pxs[0].x), rh=Math.abs(pxs[1].y-pxs[0].y);
-      ctx.setLineDash([]);
-      ctx.fillStyle='#D9A44122'; ctx.fillRect(rx,ry,rw,rh);
-      ctx.strokeStyle='#D9A441'; ctx.strokeRect(rx,ry,rw,rh);
-    } else if(es.tipo==='lapis'){
-      ctx.setLineDash([]);ctx.strokeStyle='#D9A441';ctx.lineWidth=1.6;
-      ctx.lineJoin='round';ctx.lineCap='round';
-      ctx.beginPath();
-      pxs.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
-      ctx.stroke();
-    } else if(es.tipo==='fib'){
-      const p1=es.pts[0].preco, p2=es.pts[1].preco;
-      const xIni=Math.min(pxs[0].x,pxs[1].x);
-      ctx.setLineDash([2,3]);
-      [0,0.236,0.382,0.5,0.618,0.786,1].forEach(nv=>{
-        const preco=p1+(p2-p1)*nv, yy=y(preco);
-        ctx.strokeStyle='#8B94A855';
-        ctx.beginPath();ctx.moveTo(xIni,yy);ctx.lineTo(chW,yy);ctx.stroke();
-        ctx.fillStyle='#B7A6FF';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
-        ctx.fillText(`${(nv*100).toFixed(1)}% ${fmt(preco)}`, xIni+4, yy-3);
-      });
-      ctx.setLineDash([]);
-    }
-    ctx.globalAlpha=1;
-  }
-  estudos.forEach(es=>renderEstudo(es,false));
-  // prévia ao vivo enquanto arrasta uma forma de 2 pontos (linha de tendência, seta, retângulo, fib)
-  if(formaEmAndamento && formaEmAndamento.p2){
-    renderEstudo({tipo:formaEmAndamento.tipo, pts:[formaEmAndamento.p1, formaEmAndamento.p2]}, true);
-  }
-  // traço de lápis em andamento
-  if(desenhandoLivre && ferramentaAtiva==='lapis' && pontosTemp.length>1){
-    renderEstudo({tipo:'lapis', pts:pontosTemp}, true);
-  }
+  renderTodosEstudos(x,y,bw,chW,chH,idxMaisProximo);
 
   // linhas de posição — com etiqueta colorida flutuando na borda direita, como numa boleta real
   function etiquetaPreco(p, cor, corTexto){
@@ -1869,10 +1888,12 @@ $('#layoutTabs').addEventListener('click', e=>{
 });
 cv.style.touchAction='none';
 function capturarPonto(e){
-  const per=8, chW=cv.clientWidth-62, visN=Math.floor(chW/per);
   const r=cv.getBoundingClientRect();
   const px=e.clientX-r.left-2, py=e.clientY-r.top;
-  const candlesAgg=candlesParaExibicao(), cursorAgg=candlesAgg.length;
+  const candlesAgg=candlesParaExibicao();
+  if(!candlesAgg.length) return {px,py}; // sem pregão ainda — ancora no pixel do painel mesmo
+  const per=8, chW=cv.clientWidth-62, visN=Math.floor(chW/per);
+  const cursorAgg=candlesAgg.length;
   const end=cursorAgg-viewOffset, start=Math.max(0,end-visN);
   let idx=start+Math.floor(px/per);
   idx=Math.max(0,Math.min(candlesAgg.length-1,idx));
@@ -1881,10 +1902,11 @@ function capturarPonto(e){
     const k=candlesAgg[idx], opcoes=[k.o,k.h,k.l,k.c];
     preco = opcoes.reduce((a,b)=>Math.abs(b-preco)<Math.abs(a-preco)?b:a);
   }
-  const t = candlesAgg[idx] ? candlesAgg[idx].t.getTime() : Date.now();
+  const t = candlesAgg[idx].t.getTime();
   return {t,preco};
 }
 function pixelDoPonto(p){
+  if(p.px!==undefined) return {x:p.px, y:p.py};
   const per=8, chW=cv.clientWidth-62, visN=Math.floor(chW/per);
   const candlesAgg=candlesParaExibicao(), cursorAgg=candlesAgg.length;
   const end=cursorAgg-viewOffset, start=Math.max(0,end-visN);
@@ -1980,7 +2002,10 @@ cv.addEventListener('pointerup', e=>{
     const {tipo,p1}=formaEmAndamento, p2=capturarPonto(e);
     formaEmAndamento=null;
     // ignora um clique sem arrasto de verdade — evita criar uma forma de tamanho zero
-    if(p1.t!==p2.t || Math.abs(p1.preco-p2.preco) > (ultimoHi-ultimoLo)*0.001){
+    const diferentes = p1.px!==undefined
+      ? Math.hypot(p2.px-p1.px, p2.py-p1.py) > 3
+      : (p1.t!==p2.t || Math.abs(p1.preco-p2.preco) > (ultimoHi-ultimoLo)*0.001);
+    if(diferentes){
       estudos.push({id:Date.now(), tipo, pts:[p1,p2]});
       renderEstudos();
     }
@@ -2435,14 +2460,18 @@ function fmtHoraIdx(idx){
   return t.toTimeString().slice(0,5);
 }
 /* ============ barra de estudos (desenho no gráfico) ============ */
+function descPreco(p){ return p.px!==undefined ? '(painel, sem preço)' : fmt(p.preco); }
+function descHora(p){ return p.px!==undefined ? '—' : new Date(p.t).toTimeString().slice(0,5); }
 const DESC_ESTUDO = {
-  h:          es=>`Linha horizontal — ${fmt(es.pts[0].preco)}`,
-  v:          es=>`Linha vertical — ${new Date(es.pts[0].t).toTimeString().slice(0,5)}`,
-  tendencia:  es=>`Tendência — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
-  seta:       es=>`Seta — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
-  retangulo:  es=>`Retângulo — ${fmt(Math.min(es.pts[0].preco,es.pts[1].preco))} a ${fmt(Math.max(es.pts[0].preco,es.pts[1].preco))}`,
+  h:          es=>`Linha horizontal — ${descPreco(es.pts[0])}`,
+  v:          es=>`Linha vertical — ${descHora(es.pts[0])}`,
+  tendencia:  es=>`Tendência — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
+  seta:       es=>`Seta — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
+  retangulo:  es=> es.pts[0].px!==undefined ? 'Retângulo (marcado no painel)' :
+                   `Retângulo — ${fmt(Math.min(es.pts[0].preco,es.pts[1].preco))} a ${fmt(Math.max(es.pts[0].preco,es.pts[1].preco))}`,
   lapis:      es=>`Desenho livre (${es.pts.length} pontos)`,
-  fib:        es=>`Fibonacci — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
+  fib:        es=> es.pts[0].px!==undefined ? 'Fibonacci (marcado no painel, sem preço)' :
+                   `Fibonacci — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
 };
 function renderEstudos(){
   const card=$('#linhasCard'), body=$('#linhasBody');
