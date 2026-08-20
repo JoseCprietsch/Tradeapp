@@ -1715,7 +1715,6 @@ $('#layoutTabs').addEventListener('click', e=>{
 cv.style.touchAction='none';
 cv.addEventListener('pointerdown', e=>{
   dragging=true; dragMoved=false; dragStartX=e.clientX; dragStartOffset=viewOffset;
-  if(playing) pause();
   cv.setPointerCapture(e.pointerId);
 });
 cv.addEventListener('pointermove', e=>{
