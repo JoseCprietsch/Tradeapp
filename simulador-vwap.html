@@ -1225,7 +1225,16 @@ $('#btnEditCrit').addEventListener('click',()=>{
 /* ============ gráfico ============ */
 const cv=$('#chart'), ctx=cv.getContext('2d');
 let hoverIdx=-1;
+function calcChartHeight(){
+  const rect = cv.getBoundingClientRect();
+  const hint = document.querySelector('.hint');
+  const folgaAbaixo = (hint ? hint.offsetHeight : 0) + 32; // dica de atalhos + respiro embaixo do card
+  const disponivel = window.innerHeight - rect.top - folgaAbaixo;
+  const minimo = window.innerWidth <= 860 ? 340 : 460;
+  return Math.max(minimo, Math.floor(disponivel));
+}
 function resize(){
+  cv.style.height = calcChartHeight()+'px';
   const w=cv.clientWidth, h=cv.clientHeight||520, dpr=window.devicePixelRatio||1;
   cv.width=w*dpr; cv.height=h*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
   draw();
