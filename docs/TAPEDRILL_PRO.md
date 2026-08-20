@@ -155,7 +155,7 @@ construir.
 | 2 | Abas de múltiplos ativos abertos ao mesmo tempo | ⚠️ Grande — decisão de arquitetura | Muda o modelo "1 posição por vez"; avaliar com calma antes |
 | 3 | Grid C Stop/V Limite/C Mercado/V Mercado | ⚠️ Médio-alto risco | Redesenho da interação da boleta, já testada e estável |
 | 4 | Readout OHLC+Ajuste sempre visível (não só hover) | ✅ Sim — baixo esforço | Pequena mudança, ganho de realismo direto |
-| 5 | Barra de ferramentas de desenho completa (20 ícones) | ❌ Não, por enquanto | Complexidade altíssima pra valor marginal — 1 linha horizontal já cobre o essencial pedagógico (suporte/resistência) |
+| 5 | Barra de ferramentas de desenho completa (20 ícones) | ✅ Sim — decisão revertida em 20/08/2026, ver seção v4 abaixo | José pediu o escopo completo estilo Profit; Fase 1 já entregue, Fase 2 (padrões avançados) documentada como próximo passo |
 | 6 | "Ponto de Cobertura" (limite de perda da conta) | ✅ Sim — baixo esforço | Reforça gestão de risco a nível de conta, não só por trade — liga direto com o sistema de saldo/meta que já existe |
 | 7 | Bid e Ask simultâneos (dois preços, não um) | ✅ Sim — médio esforço | Mais realista que só "último preço"; o Book de Ofertas já tem esse dado, só falta refletir no gráfico |
 | 8 | Relógio flutuante solto | ❌ Não | Puramente estético, zero valor pedagógico, e já temos o relógio na barra de status |
@@ -179,3 +179,76 @@ construir.
 Itens 2 e 3 (abas múltiplas, grid de botões) ficam como **decisão separada**,
 não entram nessa leva — são mudanças estruturais que merecem conversa própria
 antes de codar.
+
+---
+
+## v4 — Barra de estudos completa (20/08/2026)
+
+Pesquisa contra a documentação oficial da Nelogica (ajuda.nelogica.com.br)
+mostrou que a "barra de estudos" real do Profit é um pacote de análise
+técnica clássica inteiro — bem mais do que ferramentas de desenho simples.
+Lista completa encontrada:
+
+- **Navegação/interação:** Cursor, Mira (crosshair), Zoom, Mão (pan), Ímã (magnet)
+- **Mão livre:** Lápis, Marcador, Seta
+- **Linhas:** reta, horizontal, vertical, tendência, ângulo de tendência, régua
+- **Formas:** retângulo, elipse, texto
+- **Fibonacci (5 variações):** retração, extensão, canal, leque, sequência
+- **Estatística/padrões avançados:** canal, canal desvio padrão, regressão
+  linear, linha de suporte automático, ABCD, XABCD, ondas de Elliott
+
+Isso é essencialmente um segundo produto (análise técnica clássica/geometria
+de preço) dentro do TapeDrill, que hoje ensina uma escola diferente (tape
+reading, fluxo de ordens, VWAP, EV). Flag registrada: ABCD/XABCD/Elliott são
+ferramentas de reconhecimento de padrão subjetivas, sem evidência empírica
+forte de edge — isso não impede a construção (José decidiu ir com o escopo
+completo), só entra como nota de honestidade pedagógica a mencionar quando o
+Professor Trade ensinar essas ferramentas no currículo.
+
+José escolheu o escopo **completo estilo Profit**, incluindo Elliott/ABCD/
+Regressão. Dado o tamanho, a entrega foi dividida em fases:
+
+### Fase 1 — ✅ Concluída (20/08/2026)
+
+Arquitetura genérica de "estudos" (multi-ponto, multi-tipo) + barra vertical
+na lateral do gráfico:
+
+- Cursor, Mão, Mira (crosshair livre com etiqueta de preço), Ímã (encaixa no
+  O/H/L/C do candle)
+- Linha horizontal, Linha vertical, Linha de tendência, Retângulo, Texto
+- Retração de Fibonacci (7 níveis: 0/23,6/38,2/50/61,8/78,6/100%)
+- Painel "Estudos" lista todos e permite remover individualmente ou limpar
+  tudo; Esc cancela uma forma em construção
+- Testado ponta a ponta via jsdom simulando cliques reais em cada ferramenta
+
+### Fase 2 — pendente
+
+Ferramentas avançadas de Fibonacci e padrões, na ordem sugerida de esforço
+crescente:
+
+1. **Extensão de Fibonacci** — reaproveita quase 100% da arquitetura da
+   retração (2 pontos, mesma lógica de níveis), baixo esforço
+2. **Canal** (2 linhas paralelas) — médio esforço, reaproveita lógica de
+   linha de tendência + offset perpendicular
+3. **Canal de Fibonacci** e **Leque de Fibonacci** — variações do canal/
+   retração, esforço médio
+4. **Régua de medição** (mostra Δpreço e Δtempo entre 2 pontos, sem persistir
+   como estudo) — baixo esforço, ferramenta utilitária
+5. **Sequência de Fibonacci** (linhas verticais espaçadas pela sequência a
+   partir de um ponto) — esforço médio
+6. **Regressão Linear** e **Canal Desvio Padrão** — precisam de cálculo
+   estatístico sobre um intervalo de candles selecionado (mínimos quadrados),
+   esforço médio-alto
+7. **Linha de Suporte Automático** — detecção automática de suporte via
+   regressão sobre mínimos locais, esforço médio-alto
+8. **ABCD / XABCD** (padrões harmônicos, 4-5 pontos com proporções
+   Fibonacci entre pernas) — esforço alto, precisa de validação de proporção
+   e rótulos nos vértices
+9. **Ondas de Elliott** (rotulagem manual de 5 ondas de impulso + 3 de
+   correção, com numeração/lettering) — esforço alto, é majoritariamente
+   uma ferramenta de anotação manual (o usuário decide onde ficam as ondas)
+
+Lápis/Marcador/Seta (mão livre) e Zoom não entraram na Fase 1 nem estão
+priorizados na Fase 2 — baixo valor pedagógico pra um simulador de tape
+reading; revisar só se José pedir explicitamente.
+
