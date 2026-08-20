@@ -265,13 +265,11 @@
     overflow:hidden; min-width:170px; min-height:80px; max-width:min(92vw,480px); max-height:80vh;
     resize:both;
   }
-  .nota-flutuante.minimizada{resize:none; min-height:0; height:auto !important; width:200px !important}
   .nota-header{
     display:flex; align-items:center; gap:6px; padding:7px 8px; background:var(--panel2);
     cursor:move; font-size:11.5px; color:var(--muted); user-select:none; flex:0 0 auto;
     border-bottom:1px solid var(--border-soft);
   }
-  .nota-flutuante.minimizada .nota-header{border-bottom:none}
   .nota-header .nota-titulo{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:var(--font-mono)}
   .nota-header button{
     background:transparent; border:none; color:var(--faint); cursor:pointer; font-size:13px; line-height:1;
@@ -282,7 +280,6 @@
     flex:1; border:none; background:transparent; color:var(--text); resize:none;
     font-family:var(--font-ui); font-size:12.5px; padding:10px; outline:none; min-height:0;
   }
-  .nota-flutuante.minimizada .nota-body{display:none}
   #notasFechadas{
     position:fixed; bottom:14px; right:14px; z-index:151; display:flex; flex-direction:column-reverse;
     gap:6px; align-items:flex-end; max-width:60vw;
@@ -1742,7 +1739,7 @@ function criarNota(e){
 const notaResizeObserver = new ResizeObserver(entries=>{
   entries.forEach(entry=>{
     const id=+entry.target.dataset.id, nota=notas.find(n=>n.id===id);
-    if(nota && !nota.minimizada){
+    if(nota){
       nota.w=Math.round(entry.contentRect.width); nota.h=Math.round(entry.contentRect.height);
     }
   });
@@ -1751,14 +1748,13 @@ const notaResizeObserver = new ResizeObserver(entries=>{
 function renderNotas(){
   const cont=$('#notasContainer');
   cont.innerHTML = notas.filter(n=>n.aberta).map(n=>`
-    <div class="nota-flutuante ${n.minimizada?'minimizada':''}" data-id="${n.id}"
-         style="left:${n.x}px;top:${n.y}px;width:${n.w}px;${n.minimizada?'':'height:'+n.h+'px'}">
+    <div class="nota-flutuante" data-id="${n.id}" style="left:${n.x}px;top:${n.y}px;width:${n.w}px;height:${n.h}px">
       <div class="nota-header">
         <span class="nota-titulo">📝 Nota</span>
-        <button type="button" class="nota-min" title="${n.minimizada?'Expandir':'Minimizar'}">${n.minimizada?'▢':'—'}</button>
-        <button type="button" class="nota-close" title="Fechar (fica salva)">×</button>
+        <button type="button" class="nota-min" title="Minimizar (vai pro canto, dá pra reabrir depois)">—</button>
+        <button type="button" class="nota-close" title="Fechar definitivamente (apaga a nota, sem volta)">×</button>
       </div>
-      ${n.minimizada?'':`<textarea class="nota-body" placeholder="Escreva sua anotação...">${escapeHtml(n.texto)}</textarea>`}
+      <textarea class="nota-body" placeholder="Escreva sua anotação...">${escapeHtml(n.texto)}</textarea>
     </div>`).join('');
   cont.querySelectorAll('.nota-flutuante').forEach(el=>{
     const id=+el.dataset.id, nota=notas.find(n=>n.id===id);
@@ -1782,16 +1778,16 @@ function renderNotas(){
       header.addEventListener('pointerup',soltar);
     });
     el.querySelector('.nota-min').addEventListener('click', ()=>{
-      nota.minimizada=!nota.minimizada; persistirNotas(); renderNotas();
-    });
-    el.querySelector('.nota-close').addEventListener('click', ()=>{
       nota.aberta=false; persistirNotas(); renderNotas();
     });
+    el.querySelector('.nota-close').addEventListener('click', ()=>{
+      if(!confirm('Apagar essa nota definitivamente? Essa ação não pode ser desfeita.')) return;
+      notas = notas.filter(n=>n.id!==nota.id);
+      persistirNotas(); renderNotas();
+    });
     const body=el.querySelector('.nota-body');
-    if(body){
-      body.addEventListener('input', ()=>{ nota.texto=body.value; persistirNotas(); });
-    }
-    if(!nota.minimizada) notaResizeObserver.observe(el);
+    body.addEventListener('input', ()=>{ nota.texto=body.value; persistirNotas(); });
+    notaResizeObserver.observe(el);
   });
   renderNotasFechadas();
 }
