@@ -100,7 +100,6 @@
   .btn.ghost{background:transparent}
   .btn.exam{background:#7C5CFF22;border-color:#7C5CFF;color:#B7A6FF}
   .btn.exam.on{background:#7C5CFF;color:#0B0E14}
-  #btnLinha.on{background:var(--vwap);border-color:var(--vwap);color:#1A1405}
   #painelIndicadores{
     position:absolute; top:calc(100% + 6px); right:0; z-index:50; min-width:210px;
     background:var(--panel-solid); border:1px solid var(--border); border-radius:10px;
@@ -192,6 +191,12 @@
   main{display:grid;grid-template-columns:1fr 330px;gap:16px;padding:16px 20px;align-items:start}
   @media(max-width:980px){main{grid-template-columns:1fr}}
   @media(max-width:640px){
+    .chart-row{flex-direction:column}
+    #estudosBar{
+      flex-direction:row; flex:0 0 auto; width:100%; overflow-x:auto;
+      border-right:none; border-bottom:1px solid var(--border-soft); padding:6px;
+    }
+    #estudosBar .divisor{width:1px;height:22px;margin:0 4px}
     main{padding:12px 12px 24px;gap:12px}
     .side{gap:10px}
     .replay{width:100%; margin-left:0}
@@ -236,7 +241,21 @@
   }
   #abasAtivos button.on{background:var(--panel-solid); color:var(--text); border-color:var(--vwap)}
   #abasAtivos button .aba-var{font-size:10px}
-  #chartWrap{position:relative;padding:8px 8px 4px}
+  .chart-row{display:flex; align-items:stretch}
+  #chartWrap{position:relative;padding:8px 8px 4px; flex:1; min-width:0}
+  #estudosBar{
+    flex:0 0 38px; display:flex; flex-direction:column; align-items:center;
+    gap:3px; padding:8px 4px; border-right:1px solid var(--border-soft);
+  }
+  #estudosBar .divisor{width:22px;height:1px;background:var(--border-soft);margin:4px 0}
+  #estudosBar button{
+    width:30px;height:30px;border-radius:7px;border:1px solid transparent;background:transparent;
+    color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-ui);line-height:1;
+  }
+  #estudosBar button:hover{background:var(--panel2);color:var(--text)}
+  #estudosBar button.on{background:var(--vwap);border-color:var(--vwap);color:#1A1405}
+  #estudosBar button.fib-btn{font-size:10.5px;font-weight:700}
   #linhaOrdemPendente, #linhaPosicao{
     position:absolute; left:16px; height:20px; display:flex; align-items:center; gap:8px;
     font-family:var(--font-mono); font-size:11px; padding:0 8px; border-radius:4px; pointer-events:none;
@@ -406,7 +425,6 @@
     <button class="btn exam" id="btnExame" title="Casos desenhados à mão para testar sua leitura">Modo Exame</button>
     <button class="btn" id="btnNovo" title="Gera um novo pregão sintético">Novo pregão</button>
     <button class="btn ghost" id="btnCsv" title="Importar candles reais (CSV exportado do TradingView)">Importar CSV</button>
-    <button class="btn ghost" id="btnLinha" title="Clique no gráfico pra marcar um nível de suporte/resistência">📏 Linha</button>
     <div style="position:relative">
       <button class="btn ghost" id="btnIndicadores" title="Escolher quais estudos aparecem no gráfico">📊 Indicadores</button>
       <div id="painelIndicadores" style="display:none">
@@ -549,15 +567,18 @@
 
   <section class="card" id="chartCard">
     <div id="abasAtivos" style="display:none"></div>
-    <div id="chartWrap">
-      <div id="ohlc"></div>
-      <div id="evBanner"></div>
-      <canvas id="chart" height="520"></canvas>
-      <button id="btnLive" style="display:none" title="Voltar para o candle mais recente">⟳ Ao vivo</button>
-      <div id="linhaOrdemPendente" style="display:none"></div>
-      <div id="linhaPosicao" style="display:none"></div>
+    <div class="chart-row">
+      <div id="estudosBar"></div>
+      <div id="chartWrap">
+        <div id="ohlc"></div>
+        <div id="evBanner"></div>
+        <canvas id="chart" height="520"></canvas>
+        <button id="btnLive" style="display:none" title="Voltar para o candle mais recente">⟳ Ao vivo</button>
+        <div id="linhaOrdemPendente" style="display:none"></div>
+        <div id="linhaPosicao" style="display:none"></div>
+      </div>
     </div>
-    <div class="hint">Arraste o gráfico pra ver candles passados · <kbd>Espaço</kbd> avança 1 candle · <kbd>P</kbd> reproduz/pausa · <kbd>C</kbd> compra · <kbd>V</kbd> venda · <kbd>Z</kbd> zera · <kbd>I</kbd> inverte · linha âmbar = VWAP · linha roxa tracejada = catalisador macro</div>
+    <div class="hint">Arraste o gráfico pra ver candles passados · <kbd>Espaço</kbd> avança 1 candle · <kbd>P</kbd> reproduz/pausa · <kbd>C</kbd> compra · <kbd>V</kbd> venda · <kbd>Z</kbd> zera · <kbd>I</kbd> inverte · <kbd>Esc</kbd> cancela desenho · linha âmbar = VWAP · linha roxa tracejada = catalisador macro</div>
   </section>
 
   <aside class="side">
@@ -734,7 +755,7 @@
 
     <div class="card" id="linhasCard" hidden>
       <div class="gate-head">
-        <h2 style="padding:0">Linhas desenhadas</h2>
+        <h2 style="padding:0">Estudos</h2>
         <a href="#" id="btnLimparLinhas" style="font-size:11px;color:var(--faint)">limpar tudo</a>
       </div>
       <div id="linhasBody" style="padding:0 16px 14px;font-family:var(--font-mono);font-size:12px"></div>
@@ -1443,14 +1464,61 @@ function draw(){
     ctx.restore();
   });
 
-  // linhas desenhadas pelo usuário (suporte/resistência)
-  linhasDesenho.forEach(l=>{
-    const yy=y(l.preco);
-    ctx.setLineDash([2,4]);ctx.strokeStyle='#8B94A8';ctx.lineWidth=1.2;
-    ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(chW,yy);ctx.stroke();ctx.setLineDash([]);
-    ctx.fillStyle='#8B94A8';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
-    ctx.fillText(fmt(l.preco),4,yy-4);
+  // estudos desenhados pelo usuário (linhas, retângulos, fibonacci, texto...)
+  function idxMaisProximo(ts){
+    let best=0, bestDiff=Infinity;
+    for(let i=0;i<candlesAgg.length;i++){
+      const d=Math.abs(candlesAgg[i].t.getTime()-ts);
+      if(d<bestDiff){bestDiff=d; best=i;}
+    }
+    return best;
+  }
+  estudos.forEach(es=>{
+    const pxs = es.pts.map(p=>({x:x(idxMaisProximo(p.t))+bw/2, y:y(p.preco)}));
+    ctx.lineWidth=1.2;
+    if(es.tipo==='h'){
+      const yy=pxs[0].y;
+      ctx.setLineDash([2,4]);ctx.strokeStyle='#8B94A8';
+      ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(chW,yy);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='#8B94A8';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
+      ctx.fillText(fmt(es.pts[0].preco),4,yy-4);
+    } else if(es.tipo==='v'){
+      const xx=pxs[0].x;
+      ctx.setLineDash([2,4]);ctx.strokeStyle='#8B94A8';
+      ctx.beginPath();ctx.moveTo(xx,0);ctx.lineTo(xx,chH);ctx.stroke();ctx.setLineDash([]);
+    } else if(es.tipo==='tendencia'){
+      ctx.setLineDash([]);ctx.strokeStyle='#D9A441';
+      ctx.beginPath();ctx.moveTo(pxs[0].x,pxs[0].y);ctx.lineTo(pxs[1].x,pxs[1].y);ctx.stroke();
+    } else if(es.tipo==='retangulo'){
+      const rx=Math.min(pxs[0].x,pxs[1].x), ry=Math.min(pxs[0].y,pxs[1].y);
+      const rw=Math.abs(pxs[1].x-pxs[0].x), rh=Math.abs(pxs[1].y-pxs[0].y);
+      ctx.setLineDash([]);
+      ctx.fillStyle='#D9A44122'; ctx.fillRect(rx,ry,rw,rh);
+      ctx.strokeStyle='#D9A441'; ctx.strokeRect(rx,ry,rw,rh);
+    } else if(es.tipo==='texto'){
+      ctx.setLineDash([]);
+      ctx.fillStyle='#D9A441'; ctx.font='12px Sora'; ctx.textAlign='left';
+      ctx.fillText(es.texto||'', pxs[0].x+4, pxs[0].y-4);
+    } else if(es.tipo==='fib'){
+      const p1=es.pts[0].preco, p2=es.pts[1].preco;
+      const xIni=Math.min(pxs[0].x,pxs[1].x);
+      ctx.setLineDash([2,3]);
+      [0,0.236,0.382,0.5,0.618,0.786,1].forEach(nv=>{
+        const preco=p1+(p2-p1)*nv, yy=y(preco);
+        ctx.strokeStyle='#8B94A855';
+        ctx.beginPath();ctx.moveTo(xIni,yy);ctx.lineTo(chW,yy);ctx.stroke();
+        ctx.fillStyle='#B7A6FF';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
+        ctx.fillText(`${(nv*100).toFixed(1)}% ${fmt(preco)}`, xIni+4, yy-3);
+      });
+      ctx.setLineDash([]);
+    }
   });
+  // ponto já marcado de uma forma em construção (ex: 1º clique de uma linha de tendência)
+  if(pontosTemp.length){
+    const p=pontosTemp[pontosTemp.length-1];
+    const px=x(idxMaisProximo(p.t))+bw/2, py=y(p.preco);
+    ctx.fillStyle='#D9A441';ctx.beginPath();ctx.arc(px,py,3,0,Math.PI*2);ctx.fill();
+  }
 
   // linhas de posição — com etiqueta colorida flutuando na borda direita, como numa boleta real
   function etiquetaPreco(p, cor, corTexto){
@@ -1509,13 +1577,66 @@ function draw(){
     ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,chH+8+volH+gapRsi+rsiH);ctx.stroke();ctx.setLineDash([]);
     renderOhlcReadout(k);
   } else renderOhlcReadout(candlesAgg[cursorAgg-1]);
+  // mira (ferramenta) — linha horizontal + etiqueta de preço na posição exata do mouse
+  if(miraAtiva && hoverPy!=null && hoverPy>=0 && hoverPy<=chH){
+    ctx.strokeStyle='#5A6378AA';ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(0,hoverPy);ctx.lineTo(chW,hoverPy);ctx.stroke();ctx.setLineDash([]);
+    const precoMira = lo + (1-(hoverPy-4)/chH)*(hi-lo);
+    const txt=fmt(precoMira), tw=ctx.measureText(txt).width+10;
+    ctx.fillStyle='#0B0E14';ctx.fillRect(chW+2,hoverPy-8,tw,16);
+    ctx.fillStyle='#D9A441';ctx.font='11px "IBM Plex Mono"';ctx.textAlign='left';
+    ctx.fillText(txt, chW+6, hoverPy+4);
+  }
   updLiveBtn();
   atualizarLinhaPendente();
   atualizarLinhaPosicao();
 }
 let dragging=false, dragStartX=0, dragStartOffset=0, dragMoved=false;
 let ultimoLo=0, ultimoHi=1, ultimoChH=1;
-let modoDesenho=false;
+let hoverPy=null; // posição Y do mouse no canvas (pixels), pra mira/crosshair livre
+
+/* ============ Barra de estudos (ferramentas de desenho, estilo Profit) ============ */
+const FERRAMENTAS = [
+  {id:'cursor', icone:'↖',  titulo:'Cursor', grupo:'nav'},
+  {id:'mao',    icone:'✋', titulo:'Mão — mover o gráfico (igual arrastar)', grupo:'nav'},
+  {id:'mira',   icone:'✛',  titulo:'Mira — crosshair de preço e horário', grupo:'toggle'},
+  {id:'ima',    icone:'🧲', titulo:'Ímã — encaixa o desenho no preço exato do candle (abre/máx/mín/fecha)', grupo:'toggle'},
+  {id:'div1',   divisor:true},
+  {id:'h',          icone:'—',   titulo:'Linha horizontal (suporte/resistência)', pts:1},
+  {id:'v',          icone:'┃',   titulo:'Linha vertical (marcar um horário)', pts:1},
+  {id:'tendencia',  icone:'⟋',   titulo:'Linha de tendência', pts:2},
+  {id:'retangulo',  icone:'▭',   titulo:'Retângulo (marcar uma zona de preço)', pts:2},
+  {id:'texto',      icone:'T',   titulo:'Texto (anotação livre)', pts:1},
+  {id:'div2',   divisor:true},
+  {id:'fib',    icone:'Fib', titulo:'Retração de Fibonacci', pts:2, classe:'fib-btn'},
+];
+let ferramentaAtiva='cursor';
+let miraAtiva=false, imaAtivo=false;
+let estudos=[]; // {id, tipo, pts:[{t,preco}], texto?}
+let pontosTemp=[]; // pontos já marcados da forma em construção (linha de tendência, retângulo, fib precisam de 2)
+
+function renderEstudosBar(){
+  const bar=$('#estudosBar');
+  bar.innerHTML = FERRAMENTAS.map(f=>{
+    if(f.divisor) return `<div class="divisor"></div>`;
+    const on = (f.grupo==='toggle') ? (f.id==='mira'?miraAtiva:imaAtivo) : (ferramentaAtiva===f.id);
+    return `<button type="button" data-ferr="${f.id}" class="${f.classe||''} ${on?'on':''}" title="${f.titulo}">${f.icone}</button>`;
+  }).join('');
+  bar.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const id=b.dataset.ferr, def=FERRAMENTAS.find(f=>f.id===id);
+      if(def.grupo==='toggle'){
+        if(id==='mira') miraAtiva=!miraAtiva; else imaAtivo=!imaAtivo;
+      } else {
+        ferramentaAtiva = (ferramentaAtiva===id) ? 'cursor' : id; // clicar de novo na ferramenta ativa volta pro cursor
+        pontosTemp=[]; // troca de ferramenta cancela uma forma em construção
+        cv.style.cursor = (ferramentaAtiva==='cursor'||ferramentaAtiva==='mao') ? '' : 'crosshair';
+      }
+      renderEstudosBar(); draw();
+    });
+  });
+}
+renderEstudosBar();
 let indicadores = JSON.parse(localStorage.getItem('simvwap_indicadores')||'null') || {ma9:false,ma21:false,ma50:false,volMa:false,rsi:false,vap:false};
 function persistirIndicadores(){
   localStorage.setItem('simvwap_indicadores', JSON.stringify(indicadores));
@@ -1591,7 +1712,6 @@ $('#layoutTabs').addEventListener('click', e=>{
   document.querySelectorAll('#layoutTabs button[data-layout]').forEach(x=>x.classList.toggle('on', x===b));
   persistirLayouts(); atualizarTodosPaineis();
 });
-let linhasDesenho=[]; // [{preco}]
 cv.style.touchAction='none';
 cv.addEventListener('pointerdown', e=>{
   dragging=true; dragMoved=false; dragStartX=e.clientX; dragStartOffset=viewOffset;
@@ -1611,20 +1731,43 @@ cv.addEventListener('pointermove', e=>{
   const chW=cv.clientWidth-62,visN=Math.floor(chW/per);
   const cursorAgg=candlesParaExibicao().length;
   const end=cursorAgg-viewOffset, start=Math.max(0,end-visN);
-  hoverIdx=start+Math.floor((e.clientX-r.left-2)/per);draw();
+  hoverIdx=start+Math.floor((e.clientX-r.left-2)/per);
+  hoverPy=e.clientY-r.top;
+  draw();
 });
 cv.addEventListener('pointerup', e=>{
-  if(!dragMoved && modoDesenho){
+  if(!dragMoved && ferramentaAtiva!=='cursor' && ferramentaAtiva!=='mao'){
+    const per=8, chW=cv.clientWidth-62, visN=Math.floor(chW/per);
     const r=cv.getBoundingClientRect();
-    const py=e.clientY-r.top;
-    const preco = ultimoLo + (1-(py-4)/ultimoChH)*(ultimoHi-ultimoLo);
-    linhasDesenho.push({preco});
-    renderLinhas(); draw();
+    const px=e.clientX-r.left-2, py=e.clientY-r.top;
+    const candlesAgg=candlesParaExibicao(), cursorAgg=candlesAgg.length;
+    const end=cursorAgg-viewOffset, start=Math.max(0,end-visN);
+    let idx=start+Math.floor(px/per);
+    idx=Math.max(0,Math.min(candlesAgg.length-1,idx));
+    let preco = ultimoLo + (1-(py-4)/ultimoChH)*(ultimoHi-ultimoLo);
+    if(imaAtivo && candlesAgg[idx]){
+      const k=candlesAgg[idx], opcoes=[k.o,k.h,k.l,k.c];
+      preco = opcoes.reduce((a,b)=>Math.abs(b-preco)<Math.abs(a-preco)?b:a);
+    }
+    const t = candlesAgg[idx] ? candlesAgg[idx].t.getTime() : Date.now();
+    pontosTemp.push({t,preco});
+    const def = FERRAMENTAS.find(f=>f.id===ferramentaAtiva);
+    if(pontosTemp.length>=def.pts){
+      if(ferramentaAtiva==='texto'){
+        const texto=prompt('Texto da anotação:','');
+        if(texto) estudos.push({id:Date.now(), tipo:'texto', pts:[pontosTemp[0]], texto});
+      } else {
+        estudos.push({id:Date.now(), tipo:ferramentaAtiva, pts:[...pontosTemp]});
+      }
+      pontosTemp=[];
+      renderEstudos();
+    }
+    draw();
   }
   dragging=false;
 });
 cv.addEventListener('pointercancel', ()=>{dragging=false});
-cv.addEventListener('mouseleave',()=>{if(!dragging){hoverIdx=-1;draw()}});
+cv.addEventListener('mouseleave',()=>{if(!dragging){hoverIdx=-1;hoverPy=null;draw()}});
 function updLiveBtn(){
   const btn=$('#btnLive');
   if(!btn) return;
@@ -1720,13 +1863,17 @@ $('#tfBox').addEventListener('click',e=>{
   viewOffset=0; hoverIdx=-1; draw();
 });
 document.addEventListener('keydown',e=>{
-  if(e.target.matches('input,textarea,select'))return;
+  if(e.target && e.target.matches && e.target.matches('input,textarea,select'))return;
   if(e.code==='Space'){e.preventDefault();step();}
   if(e.key.toLowerCase()==='p'){e.preventDefault();playing?pause():play();}
   if(e.key.toLowerCase()==='c'){e.preventDefault();atalhoLado('buy');}
   if(e.key.toLowerCase()==='v'){e.preventDefault();atalhoLado('sell');}
   if(e.key.toLowerCase()==='z'){e.preventDefault();if(pos)fecharPos(candles[cursor-1].c,'manual');}
   if(e.key.toLowerCase()==='i'){e.preventDefault();atalhoInverter();}
+  if(e.key==='Escape' && (pontosTemp.length || (ferramentaAtiva!=='cursor'&&ferramentaAtiva!=='mao'))){
+    pontosTemp=[]; ferramentaAtiva='cursor'; cv.style.cursor='';
+    renderEstudosBar(); draw();
+  }
 });
 function avisoAtalho(msg){
   const el=document.createElement('div');
@@ -2061,25 +2208,28 @@ function fmtHoraIdx(idx){
   const t=new Date(); t.setHours(10,0,0,0); t.setMinutes(idx);
   return t.toTimeString().slice(0,5);
 }
-/* ============ desenho no gráfico (linhas horizontais de suporte/resistência) ============ */
-$('#btnLinha').addEventListener('click',()=>{
-  modoDesenho=!modoDesenho;
-  $('#btnLinha').classList.toggle('on',modoDesenho);
-  cv.style.cursor = modoDesenho?'crosshair':'';
-});
-function renderLinhas(){
+/* ============ barra de estudos (desenho no gráfico) ============ */
+const DESC_ESTUDO = {
+  h:          es=>`Linha horizontal — ${fmt(es.pts[0].preco)}`,
+  v:          es=>`Linha vertical — ${new Date(es.pts[0].t).toTimeString().slice(0,5)}`,
+  tendencia:  es=>`Tendência — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
+  retangulo:  es=>`Retângulo — ${fmt(Math.min(es.pts[0].preco,es.pts[1].preco))} a ${fmt(Math.max(es.pts[0].preco,es.pts[1].preco))}`,
+  texto:      es=>`Texto — "${es.texto}"`,
+  fib:        es=>`Fibonacci — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
+};
+function renderEstudos(){
   const card=$('#linhasCard'), body=$('#linhasBody');
-  card.hidden = linhasDesenho.length===0;
-  body.innerHTML = linhasDesenho.map((l,i)=>
+  card.hidden = estudos.length===0;
+  body.innerHTML = estudos.map((es,i)=>
     `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
-      <span>${fmt(l.preco)}</span>
+      <span>${DESC_ESTUDO[es.tipo] ? DESC_ESTUDO[es.tipo](es) : es.tipo}</span>
       <a href="#" data-i="${i}" class="rm-linha" style="color:var(--baixa);font-size:11px">remover</a>
     </div>`).join('');
   body.querySelectorAll('.rm-linha').forEach(a=>{
-    a.addEventListener('click',e=>{ e.preventDefault(); linhasDesenho.splice(+a.dataset.i,1); renderLinhas(); draw(); });
+    a.addEventListener('click',e=>{ e.preventDefault(); estudos.splice(+a.dataset.i,1); renderEstudos(); draw(); });
   });
 }
-$('#btnLimparLinhas').addEventListener('click',e=>{ e.preventDefault(); linhasDesenho=[]; renderLinhas(); draw(); });
+$('#btnLimparLinhas').addEventListener('click',e=>{ e.preventDefault(); estudos=[]; pontosTemp=[]; renderEstudos(); draw(); });
 
 function renderCalendario(){
   const card=$('#calendarCard'), body=$('#calendarBody'), nivelEl=$('#calendarNivel');
@@ -2215,7 +2365,7 @@ function selecionarAtivo(idx){
   if(pos) return alert('Zere a posição aberta antes de trocar de ativo — cada operação fica só num ativo por vez, igual numa boleta real.');
   ordemPendente=null; renderPendente();
   fimPregaoMostrado=false;
-  linhasDesenho=[]; renderLinhas();
+  estudos=[]; pontosTemp=[]; renderEstudos();
   ativoAtivoIdx=idx;
   const a=mercado[idx];
   candles=a.candles; eventos=a.eventos; sym=a.ticker;
@@ -2293,7 +2443,7 @@ function novoPregao(){
   pause();pos=null;
   ordemPendente=null; renderPendente();
   fimPregaoMostrado=false;
-  linhasDesenho=[]; renderLinhas();
+  estudos=[]; pontosTemp=[]; renderEstudos();
   mercado=gerarDia(Math.floor(Math.random()*1e9), dificuldade);
   ativoAtivoIdx=0;
   const a=mercado[0];
