@@ -240,8 +240,9 @@ crescente:
    do ponto inicial nos ângulos 38,2/50/61,8% até a borda direita
 4. ✅ **Régua de medição** (mostra Δpreço, Δ% e nº de candles entre 2 pontos,
    sem persistir como estudo) — entregue. Some sozinha depois de ~4s
-5. **Sequência de Fibonacci** (linhas verticais espaçadas pela sequência a
-   partir de um ponto) — pendente, esforço médio
+5. ✅ **Sequência de Fibonacci** — entregue. Ferramenta de 1 clique (igual
+   Linha horizontal/vertical): marca linhas verticais nos intervalos
+   1/2/3/5/8/13/21/34/55/89/144 candles a partir do ponto
 6. **Regressão Linear** e **Canal Desvio Padrão** — pendente. Precisam de
    cálculo estatístico sobre um intervalo de candles selecionado (mínimos
    quadrados), esforço médio-alto
