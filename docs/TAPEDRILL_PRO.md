@@ -233,8 +233,11 @@ crescente:
    pontos: arraste define a linha principal, um 3º clique define a largura/
    paralela, com prévia ao vivo enquanto aguarda esse clique. Essa
    arquitetura de 3 pontos é a base pro Canal de Fibonacci e Leque abaixo
-3. **Canal de Fibonacci** e **Leque de Fibonacci** — pendente. Variações do
-   Canal (item 2), esforço médio — reaproveita a arquitetura de 3 pontos
+3. ✅ **Canal de Fibonacci** e **Leque de Fibonacci** — entregues. O Canal de
+   Fibonacci reaproveitou o fluxo de 3 cliques do Canal (item 2), com 7
+   níveis intermediários entre as duas linhas em vez de só uma linha oposta.
+   O Leque é uma ferramenta de 2 pontos (igual Fib/Fib+): três linhas saindo
+   do ponto inicial nos ângulos 38,2/50/61,8% até a borda direita
 4. ✅ **Régua de medição** (mostra Δpreço, Δ% e nº de candles entre 2 pontos,
    sem persistir como estudo) — entregue. Some sozinha depois de ~4s
 5. **Sequência de Fibonacci** (linhas verticais espaçadas pela sequência a
