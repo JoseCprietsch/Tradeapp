@@ -1412,7 +1412,7 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
       ctx.fillText(label, xIni+4, yy-3);
     });
     ctx.setLineDash([]);
-  } else if(es.tipo==='canal'){
+  } else if(es.tipo==='canal' || es.tipo==='canalfib'){
     ctx.setLineDash([]);ctx.strokeStyle='#D9A441';
     const [p1,p2,p3]=pxs;
     const dx=p2.x-p1.x, dy=p2.y-p1.y, len2=(dx*dx+dy*dy)||1;
@@ -1423,8 +1423,39 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
       const t=((p3.x-p1.x)*dx+(p3.y-p1.y)*dy)/len2;
       const proj={x:p1.x+t*dx,y:p1.y+t*dy};
       const shiftX=p3.x-proj.x, shiftY=p3.y-proj.y;
-      ctx.beginPath();ctx.moveTo(a1.x+shiftX,a1.y+shiftY);ctx.lineTo(a2.x+shiftX,a2.y+shiftY);ctx.stroke();
+      if(es.tipo==='canal'){
+        ctx.beginPath();ctx.moveTo(a1.x+shiftX,a1.y+shiftY);ctx.lineTo(a2.x+shiftX,a2.y+shiftY);ctx.stroke();
+      } else {
+        // canal de fibonacci: linha oposta + níveis intermediários entre as duas
+        [0,0.236,0.382,0.5,0.618,0.786,1].forEach(nv=>{
+          ctx.strokeStyle = (nv===0||nv===1) ? '#D9A441' : '#8B94A877';
+          ctx.setLineDash(nv===0||nv===1 ? [] : [2,3]);
+          ctx.beginPath();
+          ctx.moveTo(a1.x+shiftX*nv, a1.y+shiftY*nv);
+          ctx.lineTo(a2.x+shiftX*nv, a2.y+shiftY*nv);
+          ctx.stroke();
+          if(nv!==0 && nv!==1){
+            ctx.fillStyle='#B7A6FF';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
+            ctx.fillText(`${(nv*100).toFixed(1)}%`, a2.x+shiftX*nv+4, a2.y+shiftY*nv-3);
+          }
+        });
+        ctx.setLineDash([]);
+      }
     }
+  } else if(es.tipo==='leque'){
+    ctx.setLineDash([]);
+    const [p1,p2]=pxs;
+    [0.382,0.5,0.618].forEach(nv=>{
+      const alvoY = p1.y+(p2.y-p1.y)*nv;
+      const dx=p2.x-p1.x, dy=alvoY-p1.y;
+      if(Math.abs(dx)<0.01) return;
+      const t=(chW-p1.x)/dx;
+      const fim={x:chW, y:p1.y+dy*t};
+      ctx.strokeStyle='#8B94A899';
+      ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(fim.x,fim.y);ctx.stroke();
+      ctx.fillStyle='#B7A6FF';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
+      ctx.fillText(`${(nv*100).toFixed(1)}%`, fim.x-38, fim.y-4);
+    });
   }
   ctx.globalAlpha=1;
 }
@@ -1731,7 +1762,7 @@ function draw(){
   // canal aguardando o 3º clique (largura) — prévia seguindo o mouse
   if(canalPendente && hoverIdx>=0 && hoverPy!=null){
     const p3preview = {px: x(hoverIdx)+bw/2, py: hoverPy};
-    renderEstudoNoCanvas({tipo:'canal', pts:[canalPendente.p1, canalPendente.p2, p3preview]}, true, x,y,bw,chW,chH,idxMaisProximo);
+    renderEstudoNoCanvas({tipo:canalPendente.tipo, pts:[canalPendente.p1, canalPendente.p2, p3preview]}, true, x,y,bw,chW,chH,idxMaisProximo);
   }
   // resultado temporário da régua — some sozinho depois de alguns segundos
   if(reguaResultado && Date.now()<reguaResultado.expira){
@@ -1764,6 +1795,7 @@ const FERRAMENTAS = [
   {id:'seta',       icone:'↗',   titulo:'Seta — pressione, arraste pra esticar/diminuir e solte', modo:'arraste2'},
   {id:'retangulo',  icone:'▭',   titulo:'Retângulo (marcar uma zona de preço) — pressione, arraste e solte', modo:'arraste2'},
   {id:'canal',      icone:'Can', titulo:'Canal — pressione+arraste a linha principal, solte, depois clique pra definir a largura', modo:'canal', classe:'fib-btn'},
+  {id:'canalfib',   icone:'CanF',titulo:'Canal de Fibonacci — igual o Canal, com níveis intermediários entre as duas linhas', modo:'canal', classe:'fib-btn'},
   {id:'regua',      icone:'📐',  titulo:'Régua — mede Δpreço/Δcandles entre 2 pontos (não fica salva)', modo:'regua'},
   {id:'div2',   divisor:true},
   {id:'lapis',    icone:'✏️', titulo:'Lápis — desenho livre, arraste pra riscar', modo:'livre'},
@@ -1772,6 +1804,7 @@ const FERRAMENTAS = [
   {id:'texto',  icone:'T',   titulo:'Nota — cria um bloco de anotação flutuante que você move pela tela', modo:'nota'},
   {id:'fib',    icone:'Fib', titulo:'Retração de Fibonacci — pressione, arraste e solte', modo:'arraste2', classe:'fib-btn'},
   {id:'fibext', icone:'Fib+',titulo:'Extensão de Fibonacci — pressione, arraste e solte', modo:'arraste2', classe:'fib-btn'},
+  {id:'leque',  icone:'Lqe', titulo:'Leque de Fibonacci — linhas do ponto inicial nos ângulos 38,2/50/61,8% até a borda', modo:'arraste2', classe:'fib-btn'},
 ];
 const MODO_FERRAMENTA = {};
 FERRAMENTAS.forEach(f=>{ if(f.modo) MODO_FERRAMENTA[f.id]=f.modo; });
@@ -1781,7 +1814,7 @@ let estudos=[]; // {id, tipo, pts:[{t,preco}, ...]}
 let pontosTemp=[]; // pontos do traço de lápis em andamento
 let formaEmAndamento=null; // {tipo, p1, p2} — forma de 2 pontos sendo arrastada agora
 let desenhandoLivre=false; // true durante um arraste de lápis ou borracha
-let canalPendente=null; // {p1,p2} — linha principal do canal já definida, aguardando o 3º clique (largura)
+let canalPendente=null; // {p1,p2,tipo} — linha principal já definida, aguardando o 3º clique (largura). tipo pode ser 'canal' ou 'canalfib', reaproveitam o mesmo fluxo
 let reguaResultado=null; // {p, texto, expira} — resultado temporário da régua, some sozinho
 
 function renderEstudosBar(){
@@ -2041,7 +2074,7 @@ function estudoPertoDoPixel(es,px,py,tol){
       return px>=xIni-tol && Math.abs(py-yy)<=tol;
     });
   }
-  if(es.tipo==='canal'){
+  if(es.tipo==='canal' || es.tipo==='canalfib'){
     const [a,b,c]=pxs;
     if(distPontoSegmento(px,py,a.x,a.y,b.x,b.y)<=tol) return true;
     if(!c) return false;
@@ -2050,6 +2083,18 @@ function estudoPertoDoPixel(es,px,py,tol){
     const proj={x:a.x+t*dx,y:a.y+t*dy};
     const shiftX=c.x-proj.x, shiftY=c.y-proj.y;
     return distPontoSegmento(px,py,a.x+shiftX,a.y+shiftY,b.x+shiftX,b.y+shiftY)<=tol;
+  }
+  if(es.tipo==='leque'){
+    const chW=cv.clientWidth-62;
+    const [p1,p2]=pxs;
+    return [0.382,0.5,0.618].some(nv=>{
+      const alvoY=p1.y+(p2.y-p1.y)*nv;
+      const dx=p2.x-p1.x, dy=alvoY-p1.y;
+      if(Math.abs(dx)<0.01) return false;
+      const t=(chW-p1.x)/dx;
+      const fim={x:chW,y:p1.y+dy*t};
+      return distPontoSegmento(px,py,p1.x,p1.y,fim.x,fim.y)<=tol;
+    });
   }
   // tendencia, seta: 1 segmento · lápis: vários segmentos em sequência
   for(let i=1;i<pxs.length;i++){
@@ -2074,9 +2119,9 @@ cv.addEventListener('pointerdown', e=>{
     desenhandoLivre=true; cv.setPointerCapture(e.pointerId); apagarPerto(e); return;
   }
   if(modo==='canal' && canalPendente){
-    // 3º clique: fecha a largura do canal
+    // 3º clique: fecha a largura do canal (ou canal de fibonacci)
     const p3=capturarPonto(e);
-    estudos.push({id:Date.now(), tipo:'canal', pts:[canalPendente.p1, canalPendente.p2, p3]});
+    estudos.push({id:Date.now(), tipo:canalPendente.tipo, pts:[canalPendente.p1, canalPendente.p2, p3]});
     canalPendente=null; renderEstudos(); draw();
     return;
   }
@@ -2128,8 +2173,8 @@ cv.addEventListener('pointerup', e=>{
       ? Math.hypot(p2.px-p1.px, p2.py-p1.py) > 3
       : (p1.t!==p2.t || Math.abs(p1.preco-p2.preco) > (ultimoHi-ultimoLo)*0.001);
     if(diferentes){
-      if(tipo==='canal'){
-        canalPendente={p1,p2}; // agora espera o 3º clique, que define a largura
+      if(tipo==='canal' || tipo==='canalfib'){
+        canalPendente={p1,p2,tipo}; // agora espera o 3º clique, que define a largura
       } else if(tipo==='regua'){
         mostrarResultadoRegua(p1,p2);
       } else {
@@ -2599,6 +2644,8 @@ const DESC_ESTUDO = {
                    `Retângulo — ${fmt(Math.min(es.pts[0].preco,es.pts[1].preco))} a ${fmt(Math.max(es.pts[0].preco,es.pts[1].preco))}`,
   lapis:      es=>`Desenho livre (${es.pts.length} pontos)`,
   canal:      es=>`Canal — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
+  canalfib:   es=>`Canal de Fibonacci — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
+  leque:      es=>`Leque de Fibonacci — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
   fib:        es=> es.pts[0].px!==undefined ? 'Fibonacci (marcado no painel, sem preço)' :
                    `Fibonacci — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
   fibext:     es=> es.pts[0].px!==undefined ? 'Extensão de Fibonacci (marcada no painel, sem preço)' :
