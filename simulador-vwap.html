@@ -89,6 +89,23 @@
     transition:border-color .15s, color .15s;
   }
   .gear-btn:hover{border-color:var(--vwap); color:var(--vwap)}
+  #syncBadgeWrap{position:relative; margin-left:8px; flex-shrink:0}
+  #syncBadge{
+    background:var(--baixa-dim); border:1px solid var(--baixa); color:#FF9AA8;
+    height:34px; border-radius:8px; font-size:12px; font-weight:700; padding:0 10px;
+    display:flex; align-items:center; gap:4px; cursor:pointer; font-family:var(--font-ui);
+  }
+  #syncBadge:hover{filter:brightness(1.15)}
+  #syncBadgePanel{
+    position:absolute; top:calc(100% + 6px); right:0; z-index:50; min-width:280px; max-width:340px;
+    max-height:340px; overflow-y:auto;
+    background:var(--panel-solid); border:1px solid var(--border); border-radius:10px;
+    padding-bottom:6px; box-shadow:0 12px 30px -10px #000000A0;
+  }
+  #syncBadgeBody{padding:0 16px 12px; font-family:var(--font-mono); font-size:11.5px; color:var(--muted)}
+  #syncBadgeBody .item{padding:6px 0; border-top:1px solid var(--border-soft)}
+  #syncBadgeBody .item:first-child{border-top:none}
+  #syncBadgeBody .item .hora{color:var(--faint); font-size:10.5px}
   .btn{
     background:var(--panel2);border:1px solid var(--border);color:var(--text);
     border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;
@@ -482,7 +499,18 @@
     <progress id="prog" max="1" value="0"></progress>
   </div>
   <button id="btnAbrirConta" class="gear-btn" title="Minha conta" aria-label="Minha conta">⚙</button>
+  <div id="syncBadgeWrap" style="display:none">
+    <button id="syncBadge" title="Falhas de sincronização com a nuvem (só você vê isso)">⚠️ <span id="syncBadgeN">0</span></button>
+    <div id="syncBadgePanel" hidden>
+      <div class="gate-head">
+        <h2 style="padding:0">Falhas de sincronização</h2>
+        <a href="#" id="syncBadgeClear" style="font-size:11px;color:var(--faint)">limpar</a>
+      </div>
+      <div id="syncBadgeBody"></div>
+    </div>
+  </div>
 </header>
+
 
 <div id="authRedirect" style="min-height:100vh;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;color:var(--faint);font-size:13px">
   <span>Verificando sua sessão…</span>
@@ -886,6 +914,34 @@ const SUPABASE_URL = 'https://atmmupzdcjtyncvnxlie.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0bW11cHpkY2p0eW5jdm54bGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MzY4ODUsImV4cCI6MjEwMjIxMjg4NX0.LC4WpfayOqOfVb6v9RSOeJIj2Za1_NOyG7P3sUd-3a8';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
+const ADMIN_EMAIL = 'outlierjose88@gmail.com'; // só essa conta vê o badge de falhas de sincronização
+let falhasSincronizacao = [];
+function registrarFalhaSync(msg){
+  console.warn(msg);
+  falhasSincronizacao.push({msg, hora:new Date().toLocaleTimeString('pt-BR')});
+  if(falhasSincronizacao.length>30) falhasSincronizacao.shift();
+  atualizarBadgeSync();
+}
+function atualizarBadgeSync(){
+  const wrap=$('#syncBadgeWrap');
+  const souAdmin = currentUser && currentUser.email===ADMIN_EMAIL;
+  if(!souAdmin || !falhasSincronizacao.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  $('#syncBadgeN').textContent = falhasSincronizacao.length;
+  $('#syncBadgeBody').innerHTML = falhasSincronizacao.slice().reverse().map(f=>
+    `<div class="item"><span class="hora">${f.hora}</span> — ${f.msg}</div>`
+  ).join('');
+}
+$('#syncBadge').addEventListener('click', ()=>{
+  $('#syncBadgePanel').hidden = !$('#syncBadgePanel').hidden;
+});
+$('#syncBadgeClear').addEventListener('click', e=>{
+  e.preventDefault();
+  falhasSincronizacao=[]; atualizarBadgeSync(); $('#syncBadgePanel').hidden=true;
+});
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#syncBadgeWrap')) $('#syncBadgePanel').hidden=true;
+});
 
 /* ============ estado ============ */
 let candles=[];       // {t:Date, o,h,l,c,v, vwap, evento?}
@@ -2802,20 +2858,20 @@ function tradeToRow(t){
 }
 async function cloudSaveTrade(t){
   const {error}=await sb.from('trades').insert(tradeToRow(t));
-  if(error) console.warn('Falha ao salvar trade na nuvem:',error.message);
+  if(error) registrarFalhaSync('Falha ao salvar trade na nuvem: '+error.message);
 }
 async function cloudUpdateTradeNota(t){
   const {error}=await sb.from('trades').update({nota:t.nota}).eq('id',t.id);
-  if(error) console.warn('Falha ao salvar nota na nuvem:',error.message);
+  if(error) registrarFalhaSync('Falha ao salvar nota do trade na nuvem: '+error.message);
 }
 async function cloudDeleteTrade(id){
   if(!id)return;
   const {error}=await sb.from('trades').delete().eq('id',id);
-  if(error) console.warn('Falha ao excluir trade na nuvem:',error.message);
+  if(error) registrarFalhaSync('Falha ao excluir trade na nuvem: '+error.message);
 }
 async function cloudDeleteAllTrades(){
   const {error}=await sb.from('trades').delete().eq('user_id',currentUser.id);
-  if(error) console.warn('Falha ao limpar diário na nuvem:',error.message);
+  if(error) registrarFalhaSync('Falha ao limpar diário na nuvem: '+error.message);
 }
 async function saveProgressoCaso(idx, acertou){
   if(!currentUser) return;
@@ -2823,7 +2879,7 @@ async function saveProgressoCaso(idx, acertou){
     user_id: currentUser.id, tipo:'caso_exame', chave:'caso_'+(idx+1),
     status:'concluido', detalhe:{acertou}, updated_at:new Date().toISOString()
   }, {onConflict:'user_id,tipo,chave'});
-  if(error) console.warn('Falha ao salvar progresso do caso:', error.message);
+  if(error) registrarFalhaSync('Falha ao salvar progresso do caso: '+error.message);
 }
 
 async function cloudSaveConfig(){
@@ -2836,7 +2892,7 @@ async function cloudSaveConfig(){
     updated_at:new Date().toISOString()
   };
   const {error}=await sb.from('configuracoes').upsert(payload,{onConflict:'user_id'});
-  if(error) console.warn('Falha ao salvar configuração na nuvem:',error.message);
+  if(error) registrarFalhaSync('Falha ao salvar configuração na nuvem: '+error.message);
 }
 let cloudCfgTimer=null;
 function cloudSaveConfigDebounced(){
@@ -3034,7 +3090,7 @@ async function loadCloudData(){
   if(!e1 && cloudTrades){
     trades=cloudTrades.map(rowToTrade);
     saveTrades(); renderTrades();
-  } else if(e1) console.warn('Falha ao carregar diário da nuvem:',e1.message);
+  } else if(e1) registrarFalhaSync('Falha ao carregar diário da nuvem: '+e1.message);
 
   const {data:cfg,error:e2}=await sb.from('configuracoes').select('*').eq('user_id',currentUser.id).maybeSingle();
   if(!e2){
@@ -3066,7 +3122,7 @@ async function loadCloudData(){
       cloudSaveConfig();
       showOnboarding();
     }
-  } else console.warn('Falha ao carregar configuração da nuvem:',e2.message);
+  } else registrarFalhaSync('Falha ao carregar configuração da nuvem: '+e2.message);
 }
 function resetToLocal(){
   trades=JSON.parse(localStorage.getItem(DK)||'[]'); renderTrades();
@@ -3086,16 +3142,18 @@ async function initAuth(){
     clearTimeout(fallbackTimer);
     currentUser=session?.user||null;
     updateAuthUI();
+    atualizarBadgeSync();
     if(currentUser) loadCloudData();
     sb.auth.onAuthStateChange((_event,session)=>{
       const was=currentUser;
       currentUser=session?.user||null;
       updateAuthUI();
+      atualizarBadgeSync();
       if(currentUser && currentUser.id!==was?.id) loadCloudData();
       if(!currentUser && was) resetToLocal();
     });
   }catch(err){
-    console.error('[TapeDrill] Falha ao verificar sessão:',err);
+    registrarFalhaSync('Falha ao verificar sessão: '+(err&&err.message?err.message:err));
     clearTimeout(fallbackTimer);
     const link = $('#authRedirectFallback');
     if(link) link.style.display='inline';
