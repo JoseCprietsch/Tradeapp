@@ -1456,6 +1456,20 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
       ctx.fillStyle='#B7A6FF';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
       ctx.fillText(`${(nv*100).toFixed(1)}%`, fim.x-38, fim.y-4);
     });
+  } else if(es.tipo==='fibseq'){
+    const per=8;
+    ctx.setLineDash([]);
+    ctx.fillStyle='#D9A441';ctx.beginPath();ctx.arc(pxs[0].x,20,3,0,Math.PI*2);ctx.fill();
+    ctx.setLineDash([2,4]);ctx.font='10px "IBM Plex Mono"';ctx.textAlign='center';
+    [1,2,3,5,8,13,21,34,55,89,144].forEach(n=>{
+      const xx = pxs[0].x + n*per;
+      if(xx<0 || xx>chW+30) return;
+      ctx.strokeStyle='#8B94A877';
+      ctx.beginPath();ctx.moveTo(xx,0);ctx.lineTo(xx,chH);ctx.stroke();
+      ctx.fillStyle='#B7A6FF';
+      ctx.fillText(n,xx,12);
+    });
+    ctx.setLineDash([]);
   }
   ctx.globalAlpha=1;
 }
@@ -1805,6 +1819,7 @@ const FERRAMENTAS = [
   {id:'fib',    icone:'Fib', titulo:'Retração de Fibonacci — pressione, arraste e solte', modo:'arraste2', classe:'fib-btn'},
   {id:'fibext', icone:'Fib+',titulo:'Extensão de Fibonacci — pressione, arraste e solte', modo:'arraste2', classe:'fib-btn'},
   {id:'leque',  icone:'Lqe', titulo:'Leque de Fibonacci — linhas do ponto inicial nos ângulos 38,2/50/61,8% até a borda', modo:'arraste2', classe:'fib-btn'},
+  {id:'fibseq', icone:'FSq', titulo:'Sequência de Fibonacci — 1 clique, marca horários espaçados pela sequência 1,2,3,5,8,13,21...', modo:'ponto1', classe:'fib-btn'},
 ];
 const MODO_FERRAMENTA = {};
 FERRAMENTAS.forEach(f=>{ if(f.modo) MODO_FERRAMENTA[f.id]=f.modo; });
@@ -2095,6 +2110,10 @@ function estudoPertoDoPixel(es,px,py,tol){
       const fim={x:chW,y:p1.y+dy*t};
       return distPontoSegmento(px,py,p1.x,p1.y,fim.x,fim.y)<=tol;
     });
+  }
+  if(es.tipo==='fibseq'){
+    const per=8;
+    return [0,1,2,3,5,8,13,21,34,55,89,144].some(n=> Math.abs(px-(pxs[0].x+n*per))<=tol);
   }
   // tendencia, seta: 1 segmento · lápis: vários segmentos em sequência
   for(let i=1;i<pxs.length;i++){
@@ -2646,6 +2665,7 @@ const DESC_ESTUDO = {
   canal:      es=>`Canal — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
   canalfib:   es=>`Canal de Fibonacci — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
   leque:      es=>`Leque de Fibonacci — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
+  fibseq:     es=>`Sequência de Fibonacci — a partir de ${descHora(es.pts[0])}`,
   fib:        es=> es.pts[0].px!==undefined ? 'Fibonacci (marcado no painel, sem preço)' :
                    `Fibonacci — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
   fibext:     es=> es.pts[0].px!==undefined ? 'Extensão de Fibonacci (marcada no painel, sem preço)' :
