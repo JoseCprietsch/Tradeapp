@@ -35,11 +35,15 @@ código do site. A chave `service_role` (essa sim secreta) nunca é usada aqui.
 ## O que o `schema.sql` cria
 
 Se for um projeto Supabase novo, rode só `schema.sql` (já vem correto).
-Se seu projeto já existia antes desta atualização, rode também
-`migration_001_ajuste_trades.sql` depois — corrige os tipos de duas colunas
-que não batiam com o formato real que o app usa (`data`/`hora` como texto,
-não como data/hora de calendário — o app guarda coisas como "13/08/2026" e
-um intervalo "10:05→10:22", não um valor único).
+Se seu projeto já existia antes desta atualização, rode também, nessa ordem:
+1. `migration_001_ajuste_trades.sql` — corrige os tipos de duas colunas que
+   não batiam com o formato real que o app usa (`data`/`hora` como texto,
+   não como data/hora de calendário).
+2. `migration_002_grants.sql` — garante as permissões de tabela (`GRANT`)
+   pro role `authenticated`. RLS sozinho não dá acesso a nada — ele só
+   filtra quais linhas aparecem depois que o Postgres já confirmou que o
+   usuário tem permissão de tabela. Sem isso, o erro é
+   `permission denied for table X`, mesmo com as políticas de RLS certas.
 
 | Tabela | Guarda | RLS |
 |---|---|---|
