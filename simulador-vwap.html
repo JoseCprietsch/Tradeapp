@@ -1354,6 +1354,23 @@ function resize(){
 }
 window.addEventListener('resize',resize);
 
+function calcularRegressaoLinear(candlesAgg, i1, i2){
+  if(i2<i1){ const t=i1; i1=i2; i2=t; }
+  i1=Math.max(0,i1); i2=Math.min(candlesAgg.length-1,i2);
+  const n=i2-i1+1;
+  if(n<2) return null;
+  let sumX=0,sumY=0;
+  for(let i=i1;i<=i2;i++){ sumX+=i; sumY+=candlesAgg[i].c; }
+  const meanX=sumX/n, meanY=sumY/n;
+  let num=0,den=0;
+  for(let i=i1;i<=i2;i++){ const dx=i-meanX; num+=dx*(candlesAgg[i].c-meanY); den+=dx*dx; }
+  const slope = den!==0 ? num/den : 0;
+  const intercept = meanY - slope*meanX;
+  let sqErr=0;
+  for(let i=i1;i<=i2;i++){ const pred=intercept+slope*i; sqErr+=(candlesAgg[i].c-pred)**2; }
+  const stdDev = Math.sqrt(sqErr/n);
+  return {slope, intercept, stdDev, i1, i2};
+}
 function pontoParaXY(p, x, y, bw, idxMaisProximo){
   if(p.px!==undefined) return {x:p.px, y:p.py};
   return {x:x(idxMaisProximo(p.t))+bw/2, y:y(p.preco)};
@@ -1470,6 +1487,35 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
       ctx.fillText(n,xx,12);
     });
     ctx.setLineDash([]);
+  } else if(es.tipo==='regressao' || es.tipo==='canaldesvio'){
+    ctx.setLineDash([]);
+    if(es.pts[0].px!==undefined){
+      // sem candles reais ainda — fallback gracioso, desenha uma linha simples entre os pontos
+      ctx.strokeStyle='#D9A441';
+      ctx.beginPath();ctx.moveTo(pxs[0].x,pxs[0].y);ctx.lineTo(pxs[1].x,pxs[1].y);ctx.stroke();
+    } else {
+      const candlesAgg = candlesParaExibicao();
+      const reg = calcularRegressaoLinear(candlesAgg, idxMaisProximo(es.pts[0].t), idxMaisProximo(es.pts[1].t));
+      if(reg){
+        const {slope,intercept,stdDev,i1,i2} = reg;
+        const xA=x(i1)+bw/2, xB=x(i2)+bw/2;
+        ctx.strokeStyle='#D9A441';ctx.lineWidth=1.4;
+        ctx.beginPath();ctx.moveTo(xA,y(intercept+slope*i1));ctx.lineTo(xB,y(intercept+slope*i2));ctx.stroke();
+        if(es.tipo==='canaldesvio'){
+          ctx.setLineDash([2,3]);
+          [1,2].forEach(k=>{
+            ctx.strokeStyle = k===1 ? '#8B94A899' : '#8B94A855';
+            [1,-1].forEach(sinal=>{
+              ctx.beginPath();
+              ctx.moveTo(xA,y(intercept+slope*i1+sinal*k*stdDev));
+              ctx.lineTo(xB,y(intercept+slope*i2+sinal*k*stdDev));
+              ctx.stroke();
+            });
+          });
+          ctx.setLineDash([]);
+        }
+      }
+    }
   }
   ctx.globalAlpha=1;
 }
@@ -1820,6 +1866,9 @@ const FERRAMENTAS = [
   {id:'fibext', icone:'Fib+',titulo:'Extensão de Fibonacci — pressione, arraste e solte', modo:'arraste2', classe:'fib-btn'},
   {id:'leque',  icone:'Lqe', titulo:'Leque de Fibonacci — linhas do ponto inicial nos ângulos 38,2/50/61,8% até a borda', modo:'arraste2', classe:'fib-btn'},
   {id:'fibseq', icone:'FSq', titulo:'Sequência de Fibonacci — 1 clique, marca horários espaçados pela sequência 1,2,3,5,8,13,21...', modo:'ponto1', classe:'fib-btn'},
+  {id:'div4',   divisor:true},
+  {id:'regressao',   icone:'Reg', titulo:'Regressão Linear — selecione um intervalo de candles (pressione, arraste, solte)', modo:'arraste2', classe:'fib-btn'},
+  {id:'canaldesvio', icone:'CDP', titulo:'Canal de Desvio Padrão — regressão linear + bandas de ±1 e ±2 desvios sobre o intervalo', modo:'arraste2', classe:'fib-btn'},
 ];
 const MODO_FERRAMENTA = {};
 FERRAMENTAS.forEach(f=>{ if(f.modo) MODO_FERRAMENTA[f.id]=f.modo; });
@@ -2114,6 +2163,19 @@ function estudoPertoDoPixel(es,px,py,tol){
   if(es.tipo==='fibseq'){
     const per=8;
     return [0,1,2,3,5,8,13,21,34,55,89,144].some(n=> Math.abs(px-(pxs[0].x+n*per))<=tol);
+  }
+  if(es.tipo==='regressao' || es.tipo==='canaldesvio'){
+    if(es.pts[0].px!==undefined){
+      return distPontoSegmento(px,py,pxs[0].x,pxs[0].y,pxs[1].x,pxs[1].y)<=tol;
+    }
+    const candlesAgg=candlesParaExibicao();
+    const reg=calcularRegressaoLinear(candlesAgg, idxDoPonto(es.pts[0].t), idxDoPonto(es.pts[1].t));
+    if(!reg) return false;
+    const {slope,intercept,i1,i2}=reg;
+    if(!candlesAgg[i1]||!candlesAgg[i2]) return false;
+    const pA=pixelDoPonto({t:candlesAgg[i1].t.getTime(), preco:intercept+slope*i1});
+    const pB=pixelDoPonto({t:candlesAgg[i2].t.getTime(), preco:intercept+slope*i2});
+    return distPontoSegmento(px,py,pA.x,pA.y,pB.x,pB.y)<=tol;
   }
   // tendencia, seta: 1 segmento · lápis: vários segmentos em sequência
   for(let i=1;i<pxs.length;i++){
@@ -2666,6 +2728,10 @@ const DESC_ESTUDO = {
   canalfib:   es=>`Canal de Fibonacci — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
   leque:      es=>`Leque de Fibonacci — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
   fibseq:     es=>`Sequência de Fibonacci — a partir de ${descHora(es.pts[0])}`,
+  regressao:    es=> es.pts[0].px!==undefined ? 'Regressão Linear (marcada no painel, sem candles)' :
+                     `Regressão Linear — ${descHora(es.pts[0])} a ${descHora(es.pts[1])}`,
+  canaldesvio:  es=> es.pts[0].px!==undefined ? 'Canal Desvio Padrão (marcado no painel, sem candles)' :
+                     `Canal Desvio Padrão — ${descHora(es.pts[0])} a ${descHora(es.pts[1])}`,
   fib:        es=> es.pts[0].px!==undefined ? 'Fibonacci (marcado no painel, sem preço)' :
                    `Fibonacci — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
   fibext:     es=> es.pts[0].px!==undefined ? 'Extensão de Fibonacci (marcada no painel, sem preço)' :
