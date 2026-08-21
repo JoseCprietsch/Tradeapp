@@ -1,9 +1,9 @@
-# Pregão de Treino
+# TapeDrill
 
 Site + simulador de pregão sintético para treinar leitura de fluxo, rejeições
 no VWAP e disciplina de risco antes de operar com capital real.
 
-🔗 **No ar em:** https://josecprietsch.github.io/Tradeapp/
+🔗 **No ar em:** https://tapedrill.com
 
 ## Comece por aqui
 
@@ -11,7 +11,7 @@ no VWAP e disciplina de risco antes de operar com capital real.
 |---|---|
 | Ver como o repositório inteiro se organiza | [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) |
 | Saber em que fase do curso o projeto está | [`docs/CURRICULO.md`](docs/CURRICULO.md) |
-| Ver o plano de ferramentas profissionais (Book, Times & Trades, VAP) | [`docs/TAPEDRILL_PRO.md`](docs/TAPEDRILL_PRO.md) |
+| Ver o roadmap de ferramentas profissionais (Book, Times & Trades, VAP, barra de estudos) | [`docs/TAPEDRILL_PRO.md`](docs/TAPEDRILL_PRO.md) |
 | Ver o que muda entre Iniciante/Intermediário/Trader | [`docs/NIVEIS_DIFICULDADE.md`](docs/NIVEIS_DIFICULDADE.md) |
 | Configurar login/cadastro (Supabase) | [`docs/SUPABASE.md`](docs/SUPABASE.md) |
 | Mexer no visual do site (home/método/cenários) | [`assets/style.css`](assets/style.css) |
@@ -20,9 +20,12 @@ no VWAP e disciplina de risco antes de operar com capital real.
 ## O que tem aqui
 
 - **Home, Método, Cenários** — páginas de apresentação do projeto
+- **Login/Início** — cadastro e login via Supabase (Google OAuth + e-mail/senha), hub do produto
 - **Simulador** — o app: gerador de pregão sintético, checklist de critérios,
   boleta com cálculo de posição por risco, catalisadores macro simulados,
-  diário de operações com métricas, e um Modo Exame com 4 casos comentados
+  diário de operações com métricas, Modo Exame com 4 casos comentados,
+  barra de ferramentas de desenho (linhas, setas, lápis, Fibonacci) e
+  notas flutuantes
 - **`supabase/schema.sql`** — script pronto pra criar as tabelas de usuário
   (diário, progresso, configurações) com Row Level Security já configurado
 
@@ -32,7 +35,8 @@ no VWAP e disciplina de risco antes de operar com capital real.
 |---|---|
 | Site (home, cenários, método) | ✅ |
 | Simulador — visual e responsividade mobile | ✅ |
-| Login por conta / dados na nuvem | 🔲 planejado, ver `docs/SUPABASE.md` |
+| Login por conta / dados na nuvem | ✅ conectado, ver `docs/SUPABASE.md` |
+| Barra de estudos (desenho no gráfico) e notas flutuantes | ✅ Fase 1 concluída, Fase 2 no roadmap — ver `docs/TAPEDRILL_PRO.md` |
 | Fase 3 do currículo (100+ trades simulados) | 🔲 em andamento |
 
 ## Princípios do projeto

@@ -49,6 +49,8 @@ essa conta de cabeça ou no papel — exatamente como na vida real.
 
 - Diário de operações (registro pós-trade, incluindo estado emocional e "seguiu o processo?") — é uma ferramenta de reflexão, não faz parte da execução em si, então continua existindo em todos os níveis, inclusive Trader
 - Formato Stop/Alvo como distância em R$ (não preço absoluto) — mudou pra todos os níveis de uma vez, é assim que funciona na vida real
+- **Barra de estudos (Cursor, Mão, Mira, Ímã, Linha horizontal/vertical, Tendência, Seta, Retângulo, Lápis, Borracha, Fibonacci)** — existe em qualquer plataforma profissional real, então é visível em todos os níveis, sem diferença de comportamento
+- **Notas flutuantes** — bloco de anotação pessoal, não é parte da execução nem existe numa boleta real; é ferramenta de estudo do próprio usuário, então também fica igual em todos os níveis (não faz sentido escondê-la em Trader, já que não dá nenhuma vantagem informacional sobre o mercado)
 
 ---
 
