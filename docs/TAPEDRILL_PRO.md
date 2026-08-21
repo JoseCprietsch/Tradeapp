@@ -221,31 +221,35 @@ na lateral do gráfico:
   tudo; Esc cancela uma forma em construção
 - Testado ponta a ponta via jsdom simulando cliques reais em cada ferramenta
 
-### Fase 2 — pendente
+### Fase 2 — em andamento (20/08/2026)
 
 Ferramentas avançadas de Fibonacci e padrões, na ordem sugerida de esforço
 crescente:
 
-1. **Extensão de Fibonacci** — reaproveita quase 100% da arquitetura da
-   retração (2 pontos, mesma lógica de níveis), baixo esforço
-2. **Canal** (2 linhas paralelas) — médio esforço, reaproveita lógica de
-   linha de tendência + offset perpendicular
-3. **Canal de Fibonacci** e **Leque de Fibonacci** — variações do canal/
-   retração, esforço médio
-4. **Régua de medição** (mostra Δpreço e Δtempo entre 2 pontos, sem persistir
-   como estudo) — baixo esforço, ferramenta utilitária
+1. ✅ **Extensão de Fibonacci** — entregue. Reaproveitou a arquitetura da
+   retração (2 pontos, mesma lógica de níveis), só trocando o conjunto de
+   níveis pra projeção além do 2º ponto (0/61,8/100/161,8/261,8/423,6%)
+2. ✅ **Canal** (2 linhas paralelas) — entregue. Primeira ferramenta de 3
+   pontos: arraste define a linha principal, um 3º clique define a largura/
+   paralela, com prévia ao vivo enquanto aguarda esse clique. Essa
+   arquitetura de 3 pontos é a base pro Canal de Fibonacci e Leque abaixo
+3. **Canal de Fibonacci** e **Leque de Fibonacci** — pendente. Variações do
+   Canal (item 2), esforço médio — reaproveita a arquitetura de 3 pontos
+4. ✅ **Régua de medição** (mostra Δpreço, Δ% e nº de candles entre 2 pontos,
+   sem persistir como estudo) — entregue. Some sozinha depois de ~4s
 5. **Sequência de Fibonacci** (linhas verticais espaçadas pela sequência a
-   partir de um ponto) — esforço médio
-6. **Regressão Linear** e **Canal Desvio Padrão** — precisam de cálculo
-   estatístico sobre um intervalo de candles selecionado (mínimos quadrados),
-   esforço médio-alto
-7. **Linha de Suporte Automático** — detecção automática de suporte via
-   regressão sobre mínimos locais, esforço médio-alto
+   partir de um ponto) — pendente, esforço médio
+6. **Regressão Linear** e **Canal Desvio Padrão** — pendente. Precisam de
+   cálculo estatístico sobre um intervalo de candles selecionado (mínimos
+   quadrados), esforço médio-alto
+7. **Linha de Suporte Automático** — pendente. Detecção automática de
+   suporte via regressão sobre mínimos locais, esforço médio-alto
 8. **ABCD / XABCD** (padrões harmônicos, 4-5 pontos com proporções
-   Fibonacci entre pernas) — esforço alto, precisa de validação de proporção
-   e rótulos nos vértices
+   Fibonacci entre pernas) — pendente, esforço alto, precisa de validação
+   de proporção e rótulos nos vértices
 9. **Ondas de Elliott** (rotulagem manual de 5 ondas de impulso + 3 de
-   correção, com numeração/lettering) — esforço alto, é majoritariamente
+   correção, com numeração/lettering) — pendente, esforço alto, é
+   majoritariamente
    uma ferramenta de anotação manual (o usuário decide onde ficam as ondas)
 
 Lápis/Marcador/Seta (mão livre) e Zoom não entraram na Fase 1 nem estão
