@@ -243,9 +243,11 @@ crescente:
 5. ✅ **Sequência de Fibonacci** — entregue. Ferramenta de 1 clique (igual
    Linha horizontal/vertical): marca linhas verticais nos intervalos
    1/2/3/5/8/13/21/34/55/89/144 candles a partir do ponto
-6. **Regressão Linear** e **Canal Desvio Padrão** — pendente. Precisam de
-   cálculo estatístico sobre um intervalo de candles selecionado (mínimos
-   quadrados), esforço médio-alto
+6. ✅ **Regressão Linear** e **Canal Desvio Padrão** — entregues. Pressione+
+   arraste seleciona o intervalo de candles, mas o desenho segue os
+   fechamentos reais via mínimos quadrados (não os pontos do clique).
+   Canal Desvio Padrão adiciona bandas em ±1 e ±2 desvios padrão dos
+   resíduos
 7. **Linha de Suporte Automático** — pendente. Detecção automática de
    suporte via regressão sobre mínimos locais, esforço médio-alto
 8. **ABCD / XABCD** (padrões harmônicos, 4-5 pontos com proporções
