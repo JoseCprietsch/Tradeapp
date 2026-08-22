@@ -1,6 +1,7 @@
 # TapeDrill Pro — plano de arquitetura (v2, validado contra a tela real)
 
-**Status: ✅ as 9 fases concluídas.** Fora de escopo, por decisão consciente:
+**Status: ✅ as 9 fases concluídas + Fase 2 da barra de estudos (18 ferramentas
+de desenho) 100% entregue.** Fora de escopo, por decisão consciente:
 Bookmap/CVD (item 20, complexidade alta pra valor marginal de treino).
 
 Estrutura pra aproximar o simulador de uma plataforma profissional de verdade.
@@ -221,10 +222,9 @@ na lateral do gráfico:
   tudo; Esc cancela uma forma em construção
 - Testado ponta a ponta via jsdom simulando cliques reais em cada ferramenta
 
-### Fase 2 — em andamento (20/08/2026)
+### Fase 2 — ✅ Concluída (20/08/2026)
 
-Ferramentas avançadas de Fibonacci e padrões, na ordem sugerida de esforço
-crescente:
+Ferramentas avançadas de Fibonacci e padrões, na ordem de entrega:
 
 1. ✅ **Extensão de Fibonacci** — entregue. Reaproveitou a arquitetura da
    retração (2 pontos, mesma lógica de níveis), só trocando o conjunto de
@@ -252,15 +252,19 @@ crescente:
    o intervalo; detecta mínimos locais (janela de 3 candles) e ajusta uma
    reta de regressão só sobre esses pontos, marcando cada mínimo com uma
    bolinha verde
-8. **ABCD / XABCD** (padrões harmônicos, 4-5 pontos com proporções
-   Fibonacci entre pernas) — pendente, esforço alto, precisa de validação
-   de proporção e rótulos nos vértices
-9. **Ondas de Elliott** (rotulagem manual de 5 ondas de impulso + 3 de
-   correção, com numeração/lettering) — pendente, esforço alto, é
-   majoritariamente
-   uma ferramenta de anotação manual (o usuário decide onde ficam as ondas)
+8. ✅ **ABCD / XABCD** — entregues. Primeiras ferramentas de **cliques em
+   sequência** (não pressione+arraste): 4 cliques (A,B,C,D) ou 5 cliques
+   (X,A,B,C,D), com prévia ao vivo enquanto a sequência está incompleta.
+   Calcula as proporções de Fibonacci reais entre as pernas (BC/AB, CD/BC,
+   AB/XA) e mostra o percentual — validação de verdade, não só desenho
+9. ✅ **Ondas de Elliott** — entregue. 6 cliques (impulso 0,1,2,3,4,5).
+   Valida as 3 regras clássicas do padrão (onda 2 não retrai além do
+   início da onda 1; onda 3 nunca é a mais curta entre 1/3/5; onda 4 não
+   invade o território da onda 1) e avisa qual foi violada, se houver
 
-Lápis/Marcador/Seta (mão livre) e Zoom não entraram na Fase 1 nem estão
-priorizados na Fase 2 — baixo valor pedagógico pra um simulador de tape
-reading; revisar só se José pedir explicitamente.
+Lápis/Marcador/Seta (mão livre) e Zoom não entraram nesse escopo — baixo
+valor pedagógico pra um simulador de tape reading; revisar só se José
+pedir explicitamente. Fora isso, **a barra de estudos completa está
+100% entregue**, incluindo os itens de maior esforço documentados
+originalmente na v4 desta seção.
 
