@@ -248,8 +248,10 @@ crescente:
    fechamentos reais via mínimos quadrados (não os pontos do clique).
    Canal Desvio Padrão adiciona bandas em ±1 e ±2 desvios padrão dos
    resíduos
-7. **Linha de Suporte Automático** — pendente. Detecção automática de
-   suporte via regressão sobre mínimos locais, esforço médio-alto
+7. ✅ **Linha de Suporte Automático** — entregue. Pressione+arraste seleciona
+   o intervalo; detecta mínimos locais (janela de 3 candles) e ajusta uma
+   reta de regressão só sobre esses pontos, marcando cada mínimo com uma
+   bolinha verde
 8. **ABCD / XABCD** (padrões harmônicos, 4-5 pontos com proporções
    Fibonacci entre pernas) — pendente, esforço alto, precisa de validação
    de proporção e rótulos nos vértices
