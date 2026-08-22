@@ -28,6 +28,7 @@ Ofertas, VAP, etc.) — a regra geral é sempre a mesma:
 | Gate de critérios (trava a ordem até marcar o checklist) | ✅ Ativo | ❌ Ordem livre | ❌ Ordem livre |
 | Modo Exame (casos roteirizados com gabarito) | ✅ Disponível | ✅ Disponível | ❌ Escondido — não existe roteiro numa tela real |
 | Times & Trades (fita de negócios) | ❌ Escondido | ✅ Visível | ✅ Visível |
+| Manual das ferramentas de desenho (botão "📖 Manual") | ✅ Visível | ❌ Escondido | ❌ Escondido — quem chegou em Intermediário/Trader já não precisa de instrução de como usar as 25 ferramentas |
 
 ## 3. Boleta — o que existe numa tela real vs. o que é pedagógico
 
