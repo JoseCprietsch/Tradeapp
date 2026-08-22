@@ -1375,6 +1375,16 @@ function pontoParaXY(p, x, y, bw, idxMaisProximo){
   if(p.px!==undefined) return {x:p.px, y:p.py};
   return {x:x(idxMaisProximo(p.t))+bw/2, y:y(p.preco)};
 }
+function desenharRotuloEstudo(texto, px, py, cor, align){
+  ctx.font='11px "IBM Plex Mono"';
+  ctx.textAlign = align||'left';
+  const w = ctx.measureText(texto).width+8;
+  const rx = align==='right' ? px-w : px;
+  ctx.fillStyle='#0B0E14E6';
+  ctx.fillRect(rx-2, py-11, w+2, 14);
+  ctx.fillStyle = cor||'#B7A6FF';
+  ctx.fillText(texto, px, py);
+}
 function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
   const pxs = es.pts.map(p=>pontoParaXY(p,x,y,bw,idxMaisProximo));
   ctx.lineWidth=1.2; ctx.globalAlpha = preview ? 0.6 : 1;
@@ -1425,8 +1435,7 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
         : `${(nv*100).toFixed(1)}%`;
       ctx.strokeStyle='#8B94A855';
       ctx.beginPath();ctx.moveTo(xIni,yy);ctx.lineTo(chW,yy);ctx.stroke();
-      ctx.fillStyle='#B7A6FF';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
-      ctx.fillText(label, xIni+4, yy-3);
+      desenharRotuloEstudo(label, xIni+4, yy-3, '#B7A6FF', 'left');
     });
     ctx.setLineDash([]);
   } else if(es.tipo==='canal' || es.tipo==='canalfib'){
@@ -1452,8 +1461,7 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
           ctx.lineTo(a2.x+shiftX*nv, a2.y+shiftY*nv);
           ctx.stroke();
           if(nv!==0 && nv!==1){
-            ctx.fillStyle='#B7A6FF';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
-            ctx.fillText(`${(nv*100).toFixed(1)}%`, a2.x+shiftX*nv+4, a2.y+shiftY*nv-3);
+            desenharRotuloEstudo(`${(nv*100).toFixed(1)}%`, a2.x+shiftX*nv+4, a2.y+shiftY*nv-3, '#B7A6FF', 'left');
           }
         });
         ctx.setLineDash([]);
@@ -1470,21 +1478,19 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
       const fim={x:chW, y:p1.y+dy*t};
       ctx.strokeStyle='#8B94A899';
       ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(fim.x,fim.y);ctx.stroke();
-      ctx.fillStyle='#B7A6FF';ctx.font='10px "IBM Plex Mono"';ctx.textAlign='left';
-      ctx.fillText(`${(nv*100).toFixed(1)}%`, fim.x-38, fim.y-4);
+      desenharRotuloEstudo(`${(nv*100).toFixed(1)}%`, fim.x-42, fim.y-4, '#B7A6FF', 'left');
     });
   } else if(es.tipo==='fibseq'){
     const per=8;
     ctx.setLineDash([]);
     ctx.fillStyle='#D9A441';ctx.beginPath();ctx.arc(pxs[0].x,20,3,0,Math.PI*2);ctx.fill();
-    ctx.setLineDash([2,4]);ctx.font='10px "IBM Plex Mono"';ctx.textAlign='center';
+    ctx.setLineDash([2,4]);
     [1,2,3,5,8,13,21,34,55,89,144].forEach(n=>{
       const xx = pxs[0].x + n*per;
       if(xx<0 || xx>chW+30) return;
       ctx.strokeStyle='#8B94A877';
       ctx.beginPath();ctx.moveTo(xx,0);ctx.lineTo(xx,chH);ctx.stroke();
-      ctx.fillStyle='#B7A6FF';
-      ctx.fillText(n,xx,12);
+      desenharRotuloEstudo(String(n), xx-8, 16, '#B7A6FF', 'left');
     });
     ctx.setLineDash([]);
   } else if(es.tipo==='regressao' || es.tipo==='canaldesvio'){
@@ -1493,14 +1499,20 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
       // sem candles reais ainda — fallback gracioso, desenha uma linha simples entre os pontos
       ctx.strokeStyle='#D9A441';
       ctx.beginPath();ctx.moveTo(pxs[0].x,pxs[0].y);ctx.lineTo(pxs[1].x,pxs[1].y);ctx.stroke();
+      desenharRotuloEstudo('sem candles pra calcular', pxs[1].x+6, pxs[1].y, '#8B94A8', 'left');
     } else {
       const candlesAgg = candlesParaExibicao();
       const reg = calcularRegressaoLinear(candlesAgg, idxMaisProximo(es.pts[0].t), idxMaisProximo(es.pts[1].t));
       if(reg){
         const {slope,intercept,stdDev,i1,i2} = reg;
         const xA=x(i1)+bw/2, xB=x(i2)+bw/2;
+        const precoIni=intercept+slope*i1, precoFim=intercept+slope*i2;
+        const yFim=y(precoFim);
         ctx.strokeStyle='#D9A441';ctx.lineWidth=1.4;
-        ctx.beginPath();ctx.moveTo(xA,y(intercept+slope*i1));ctx.lineTo(xB,y(intercept+slope*i2));ctx.stroke();
+        ctx.beginPath();ctx.moveTo(xA,y(precoIni));ctx.lineTo(xB,yFim);ctx.stroke();
+        const deltaPct = precoIni!==0 ? ((precoFim-precoIni)/precoIni*100) : 0;
+        const nCandles = i2-i1;
+        const rotuloPrincipal = `${deltaPct>=0?'+':''}${deltaPct.toFixed(2)}%  (${fmt(precoIni)} → ${fmt(precoFim)})  ·  ${nCandles} candles`;
         if(es.tipo==='canaldesvio'){
           ctx.setLineDash([2,3]);
           [1,2].forEach(k=>{
@@ -1513,6 +1525,10 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
             });
           });
           ctx.setLineDash([]);
+          desenharRotuloEstudo(rotuloPrincipal, xB+4, yFim, '#D9A441', 'left');
+          desenharRotuloEstudo(`σ (desvio padrão) ${fmt(stdDev)}`, xB+4, y(precoFim+stdDev), '#8B94A8', 'left');
+        } else {
+          desenharRotuloEstudo(rotuloPrincipal, xB+4, yFim, '#D9A441', 'left');
         }
       }
     }
@@ -2716,6 +2732,16 @@ function fmtHoraIdx(idx){
 /* ============ barra de estudos (desenho no gráfico) ============ */
 function descPreco(p){ return p.px!==undefined ? '(painel, sem preço)' : fmt(p.preco); }
 function descHora(p){ return p.px!==undefined ? '—' : new Date(p.t).toTimeString().slice(0,5); }
+function descRegressao(es){
+  if(es.pts[0].px!==undefined) return null;
+  const candlesAgg=candlesParaExibicao();
+  const reg=calcularRegressaoLinear(candlesAgg, idxDoPonto(es.pts[0].t), idxDoPonto(es.pts[1].t));
+  if(!reg) return null;
+  const {slope,intercept,i1,i2,stdDev}=reg;
+  const p1=intercept+slope*i1, p2=intercept+slope*i2;
+  const pct = p1!==0 ? ((p2-p1)/p1*100) : 0;
+  return {pct, stdDev};
+}
 const DESC_ESTUDO = {
   h:          es=>`Linha horizontal — ${descPreco(es.pts[0])}`,
   v:          es=>`Linha vertical — ${descHora(es.pts[0])}`,
@@ -2728,10 +2754,16 @@ const DESC_ESTUDO = {
   canalfib:   es=>`Canal de Fibonacci — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
   leque:      es=>`Leque de Fibonacci — ${descPreco(es.pts[0])} → ${descPreco(es.pts[1])}`,
   fibseq:     es=>`Sequência de Fibonacci — a partir de ${descHora(es.pts[0])}`,
-  regressao:    es=> es.pts[0].px!==undefined ? 'Regressão Linear (marcada no painel, sem candles)' :
-                     `Regressão Linear — ${descHora(es.pts[0])} a ${descHora(es.pts[1])}`,
-  canaldesvio:  es=> es.pts[0].px!==undefined ? 'Canal Desvio Padrão (marcado no painel, sem candles)' :
-                     `Canal Desvio Padrão — ${descHora(es.pts[0])} a ${descHora(es.pts[1])}`,
+  regressao:    es=>{
+    const d = descRegressao(es);
+    if(!d) return 'Regressão Linear (marcada no painel, sem candles)';
+    return `Regressão Linear — ${d.pct>=0?'+':''}${d.pct.toFixed(2)}% (${descHora(es.pts[0])} a ${descHora(es.pts[1])})`;
+  },
+  canaldesvio:  es=>{
+    const d = descRegressao(es);
+    if(!d) return 'Canal Desvio Padrão (marcado no painel, sem candles)';
+    return `Canal Desvio Padrão — ${d.pct>=0?'+':''}${d.pct.toFixed(2)}%, σ ${fmt(d.stdDev)} (${descHora(es.pts[0])} a ${descHora(es.pts[1])})`;
+  },
   fib:        es=> es.pts[0].px!==undefined ? 'Fibonacci (marcado no painel, sem preço)' :
                    `Fibonacci — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
   fibext:     es=> es.pts[0].px!==undefined ? 'Extensão de Fibonacci (marcada no painel, sem preço)' :
