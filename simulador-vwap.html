@@ -1378,6 +1378,30 @@ function calcularRegressaoPontos(pontos){
   const intercept = meanY-slope*meanX;
   return {slope, intercept, n};
 }
+function calcularProporcoesABCD(precos){
+  const [pa,pb,pc,pd] = precos;
+  const ab=pb-pa, bc=pc-pb, cd=pd-pc;
+  return { retracaoBC: ab!==0 ? Math.abs(bc/ab) : 0, extensaoCD: bc!==0 ? Math.abs(cd/bc) : 0 };
+}
+function calcularProporcoesXABCD(precos){
+  const [px_,pa,pb,pc,pd] = precos;
+  const xa=pa-px_, ab=pb-pa, bc=pc-pb, cd=pd-pc;
+  return {
+    retracaoAB: xa!==0 ? Math.abs(ab/xa) : 0,
+    retracaoBC: ab!==0 ? Math.abs(bc/ab) : 0,
+    extensaoCD: bc!==0 ? Math.abs(cd/bc) : 0,
+  };
+}
+function validarElliott(precos){
+  const [p0,p1,p2,p3,p4,p5] = precos;
+  const alta = p1>p0;
+  const w1=Math.abs(p1-p0), w3=Math.abs(p3-p2), w5=Math.abs(p5-p4);
+  const violacoes=[];
+  if(alta ? p2<p0 : p2>p0) violacoes.push('onda 2 retraiu além do início da onda 1');
+  if(w3<w1 && w3<w5) violacoes.push('onda 3 é a mais curta (nunca pode ser)');
+  if(alta ? p4<p1 : p4>p1) violacoes.push('onda 4 invadiu o território da onda 1');
+  return violacoes;
+}
 function calcularRegressaoLinear(candlesAgg, i1, i2){
   if(i2<i1){ const t=i1; i1=i2; i2=t; }
   i1=Math.max(0,i1); i2=Math.min(candlesAgg.length-1,i2);
@@ -1588,6 +1612,43 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
         desenharRotuloEstudo('poucos mínimos detectados nesse intervalo — selecione um trecho maior', pxs[1].x+6, pxs[1].y, '#8B94A8', 'left');
       }
     }
+  } else if(es.tipo==='abcd' || es.tipo==='xabcd'){
+    const labels = es.tipo==='abcd' ? ['A','B','C','D'] : ['X','A','B','C','D'];
+    ctx.setLineDash([]);ctx.strokeStyle='#D9A441';ctx.lineWidth=1.4;
+    ctx.beginPath();
+    pxs.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+    ctx.stroke();
+    pxs.forEach((p,i)=>{
+      ctx.fillStyle='#D9A441';ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();
+      desenharRotuloEstudo(labels[i], p.x-4, p.y-8, '#D9A441', 'left');
+    });
+    if(pxs.length===labels.length && es.pts[0].px===undefined){
+      const precos = es.pts.map(p=>p.preco);
+      const ultimo = pxs[pxs.length-1];
+      if(es.tipo==='abcd'){
+        const {retracaoBC,extensaoCD} = calcularProporcoesABCD(precos);
+        desenharRotuloEstudo(`BC/AB ${(retracaoBC*100).toFixed(1)}%  ·  CD/BC ${(extensaoCD*100).toFixed(1)}%`, ultimo.x+8, ultimo.y, '#B7A6FF', 'left');
+      } else {
+        const {retracaoAB,retracaoBC,extensaoCD} = calcularProporcoesXABCD(precos);
+        desenharRotuloEstudo(`AB/XA ${(retracaoAB*100).toFixed(1)}% · BC/AB ${(retracaoBC*100).toFixed(1)}% · CD/BC ${(extensaoCD*100).toFixed(1)}%`, ultimo.x+8, ultimo.y, '#B7A6FF', 'left');
+      }
+    }
+  } else if(es.tipo==='elliott'){
+    const labels = ['0','1','2','3','4','5'];
+    ctx.setLineDash([]);ctx.strokeStyle='#4DA3FF';ctx.lineWidth=1.4;
+    ctx.beginPath();
+    pxs.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+    ctx.stroke();
+    pxs.forEach((p,i)=>{
+      ctx.fillStyle='#4DA3FF';ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();
+      desenharRotuloEstudo(labels[i], p.x-4, p.y-8, '#4DA3FF', 'left');
+    });
+    if(pxs.length===6 && es.pts[0].px===undefined){
+      const violacoes = validarElliott(es.pts.map(p=>p.preco));
+      const ultimo = pxs[pxs.length-1];
+      const rotulo = violacoes.length ? `⚠ ${violacoes[0]}` : '✓ regras clássicas ok';
+      desenharRotuloEstudo(rotulo, ultimo.x+8, ultimo.y, violacoes.length?'#F2495C':'#2ECC8F', 'left');
+    }
   }
   ctx.globalAlpha=1;
 }
@@ -1598,6 +1659,9 @@ function renderTodosEstudos(x,y,bw,chW,chH,idxMaisProximo){
   }
   if(desenhandoLivre && ferramentaAtiva==='lapis' && pontosTemp.length>1){
     renderEstudoNoCanvas({tipo:'lapis', pts:pontosTemp}, true, x,y,bw,chW,chH,idxMaisProximo);
+  }
+  if(!desenhandoLivre && pontosTemp.length && MODO_FERRAMENTA[ferramentaAtiva]==='sequencial'){
+    renderEstudoNoCanvas({tipo:ferramentaAtiva, pts:pontosTemp}, true, x,y,bw,chW,chH,idxMaisProximo);
   }
 }
 function draw(){
@@ -1942,6 +2006,10 @@ const FERRAMENTAS = [
   {id:'regressao',   icone:'Reg', titulo:'Regressão Linear — selecione um intervalo de candles (pressione, arraste, solte)', modo:'arraste2', classe:'fib-btn'},
   {id:'canaldesvio', icone:'CDP', titulo:'Canal de Desvio Padrão — regressão linear + bandas de ±1 e ±2 desvios sobre o intervalo', modo:'arraste2', classe:'fib-btn'},
   {id:'suporteauto', icone:'SAu', titulo:'Suporte Automático — selecione um intervalo (pressione, arraste, solte); detecta mínimos locais e ajusta uma reta só sobre eles', modo:'arraste2', classe:'fib-btn'},
+  {id:'div5',   divisor:true},
+  {id:'abcd',    icone:'ABCD', titulo:'ABCD — clique 4 vezes seguidas nos pontos A, B, C, D', modo:'sequencial', pontosNecessarios:4, classe:'fib-btn'},
+  {id:'xabcd',   icone:'XABC', titulo:'XABCD — clique 5 vezes seguidas nos pontos X, A, B, C, D', modo:'sequencial', pontosNecessarios:5, classe:'fib-btn'},
+  {id:'elliott', icone:'Ell',  titulo:'Ondas de Elliott — clique 6 vezes seguidas nos pontos 0,1,2,3,4,5 (impulso)', modo:'sequencial', pontosNecessarios:6, classe:'fib-btn'},
 ];
 const MODO_FERRAMENTA = {};
 FERRAMENTAS.forEach(f=>{ if(f.modo) MODO_FERRAMENTA[f.id]=f.modo; });
@@ -2355,6 +2423,15 @@ cv.addEventListener('pointerup', e=>{
   if(!dragMoved && MODO_FERRAMENTA[ferramentaAtiva]==='ponto1'){
     estudos.push({id:Date.now(), tipo:ferramentaAtiva, pts:[capturarPonto(e)]});
     renderEstudos(); draw();
+  } else if(!dragMoved && MODO_FERRAMENTA[ferramentaAtiva]==='sequencial'){
+    pontosTemp.push(capturarPonto(e));
+    const def = FERRAMENTAS.find(f=>f.id===ferramentaAtiva);
+    if(pontosTemp.length>=def.pontosNecessarios){
+      estudos.push({id:Date.now(), tipo:ferramentaAtiva, pts:[...pontosTemp]});
+      pontosTemp=[];
+      renderEstudos();
+    }
+    draw();
   }
   dragging=false;
 });
@@ -2863,6 +2940,24 @@ const DESC_ESTUDO = {
     const reg=calcularRegressaoPontos(minimos);
     if(!reg) return 'Suporte Automático (poucos mínimos no intervalo — selecione um trecho maior)';
     return `Suporte Automático — ${reg.n} mínimos, ${reg.slope>=0?'ascendente':'descendente'} (${descHora(es.pts[0])} a ${descHora(es.pts[1])})`;
+  },
+  abcd:  es=>{
+    if(es.pts.length<4) return 'ABCD (incompleto)';
+    if(es.pts[0].px!==undefined) return 'ABCD (marcado no painel, sem preço)';
+    const {retracaoBC,extensaoCD} = calcularProporcoesABCD(es.pts.map(p=>p.preco));
+    return `ABCD — BC/AB ${(retracaoBC*100).toFixed(1)}%, CD/BC ${(extensaoCD*100).toFixed(1)}%`;
+  },
+  xabcd: es=>{
+    if(es.pts.length<5) return 'XABCD (incompleto)';
+    if(es.pts[0].px!==undefined) return 'XABCD (marcado no painel, sem preço)';
+    const {retracaoAB,retracaoBC,extensaoCD} = calcularProporcoesXABCD(es.pts.map(p=>p.preco));
+    return `XABCD — AB/XA ${(retracaoAB*100).toFixed(1)}%, BC/AB ${(retracaoBC*100).toFixed(1)}%, CD/BC ${(extensaoCD*100).toFixed(1)}%`;
+  },
+  elliott: es=>{
+    if(es.pts.length<6) return 'Ondas de Elliott (incompleto)';
+    if(es.pts[0].px!==undefined) return 'Ondas de Elliott (marcado no painel, sem preço)';
+    const violacoes = validarElliott(es.pts.map(p=>p.preco));
+    return violacoes.length ? `Ondas de Elliott — ⚠ ${violacoes.length} regra(s) violada(s)` : 'Ondas de Elliott — ✓ regras clássicas respeitadas';
   },
   fib:        es=> es.pts[0].px!==undefined ? 'Fibonacci (marcado no painel, sem preço)' :
                    `Fibonacci — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
