@@ -186,6 +186,21 @@
   .account-msg.ok{color:#2ECC8F}
   .account-section.danger p{color:#F2495C99}
   .btn.ghost.danger{border-color:#F2495C55; color:#F2495C}
+  #manualModal{
+    position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
+    background:#050608CC; backdrop-filter:blur(3px); padding:20px; overflow-y:auto;
+  }
+  .manual-secao{font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--vwap); font-weight:700; margin:18px 0 8px}
+  .manual-secao:first-child{margin-top:0}
+  .manual-item{display:flex; gap:12px; padding:9px 0; border-top:1px solid var(--border-soft)}
+  .manual-item:first-of-type, .manual-secao + .manual-item{border-top:none}
+  .manual-icone{
+    flex:0 0 36px; height:30px; border-radius:7px; background:var(--panel2); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--muted);
+    font-family:var(--font-mono); font-weight:700; text-align:center; line-height:1; padding:2px;
+  }
+  .manual-texto b{font-size:13px; display:block; margin-bottom:2px}
+  .manual-texto p{font-size:12.5px; color:var(--muted); line-height:1.5}
   .btn.ghost.danger:hover{border-color:#F2495C; background:#F2495C11}
 
   /* ---- tema claro ---- */
@@ -486,6 +501,7 @@
         <label><input type="checkbox" data-ind="vap"> VAP (Volume at Price)</label>
       </div>
     </div>
+    <button class="btn ghost" id="btnManual" title="Manual — como usar cada ferramenta de desenho">📖 Manual</button>
     <input type="file" id="fileCsv" accept=".csv,text/csv">
     <button class="btn primary" id="btnPlay">▶ Reproduzir</button>
     <button class="btn" id="btnStep" title="Avança 1 candle (barra de espaço)">+1</button>
@@ -623,6 +639,19 @@
       </div>
 
       <button class="btn primary" id="btnSair" style="width:100%">Sair</button>
+    </div>
+  </div>
+
+  <div id="manualModal" style="display:none">
+    <div class="account-card" style="max-width:640px">
+      <div class="account-head">
+        <div>
+          <h2>Manual das ferramentas de desenho</h2>
+          <div class="account-email">Como usar cada uma, e o que ela mostra</div>
+        </div>
+        <button class="account-close" id="btnFecharManual" aria-label="Fechar">×</button>
+      </div>
+      <div id="manualBody"></div>
     </div>
   </div>
 
@@ -1980,39 +2009,87 @@ let hoverPy=null; // posição Y do mouse no canvas (pixels), pra mira/crosshair
 
 /* ============ Barra de estudos (ferramentas de desenho, estilo Profit) ============ */
 const FERRAMENTAS = [
-  {id:'cursor', icone:'↖',  titulo:'Cursor', grupo:'nav'},
-  {id:'mao',    icone:'✋', titulo:'Mão — mover o gráfico (igual arrastar)', grupo:'nav'},
-  {id:'mira',   icone:'✛',  titulo:'Mira — crosshair de preço e horário', grupo:'toggle'},
-  {id:'ima',    icone:'🧲', titulo:'Ímã — encaixa o desenho no preço exato do candle (abre/máx/mín/fecha)', grupo:'toggle'},
+  {id:'cursor', icone:'↖',  titulo:'Cursor', grupo:'nav', secao:'Navegação',
+    manual:'Ferramenta padrão, não desenha nada. Use pra arrastar o gráfico e navegar sem risco de criar uma forma sem querer.'},
+  {id:'mao',    icone:'✋', titulo:'Mão — mover o gráfico (igual arrastar)', grupo:'nav', secao:'Navegação',
+    manual:'Igual o Cursor — arrasta o gráfico pros lados pra ver candles passados. Não desenha nada.'},
+  {id:'mira',   icone:'✛',  titulo:'Mira — crosshair de preço e horário', grupo:'toggle', secao:'Navegação',
+    manual:'Liga/desliga a mira: uma linha horizontal acompanha o mouse mostrando o preço exato naquela altura, sem precisar clicar em nada.'},
+  {id:'ima',    icone:'🧲', titulo:'Ímã — encaixa o desenho no preço exato do candle (abre/máx/mín/fecha)', grupo:'toggle', secao:'Navegação',
+    manual:'Liga/desliga o ímã: com ele ativo, qualquer ponto que você marcar "gruda" automaticamente no preço de abertura, máxima, mínima ou fechamento do candle mais próximo, em vez do pixel exato onde clicou.'},
   {id:'div1',   divisor:true},
-  {id:'h',          icone:'—',   titulo:'Linha horizontal (suporte/resistência) — 1 clique', modo:'ponto1'},
-  {id:'v',          icone:'┃',   titulo:'Linha vertical (marcar um horário) — 1 clique', modo:'ponto1'},
-  {id:'tendencia',  icone:'⟋',   titulo:'Linha de tendência (reta) — pressione, arraste e solte', modo:'arraste2'},
-  {id:'seta',       icone:'↗',   titulo:'Seta — pressione, arraste pra esticar/diminuir e solte', modo:'arraste2'},
-  {id:'retangulo',  icone:'▭',   titulo:'Retângulo (marcar uma zona de preço) — pressione, arraste e solte', modo:'arraste2'},
-  {id:'canal',      icone:'Can', titulo:'Canal — pressione+arraste a linha principal, solte, depois clique pra definir a largura', modo:'canal', classe:'fib-btn'},
-  {id:'canalfib',   icone:'CanF',titulo:'Canal de Fibonacci — igual o Canal, com níveis intermediários entre as duas linhas', modo:'canal', classe:'fib-btn'},
-  {id:'regua',      icone:'📐',  titulo:'Régua — mede Δpreço/Δcandles entre 2 pontos (não fica salva)', modo:'regua'},
+  {id:'h',          icone:'—',   titulo:'Linha horizontal (suporte/resistência) — 1 clique', modo:'ponto1', secao:'Linhas e formas',
+    manual:'Clique uma vez no gráfico. Marca uma linha horizontal na altura daquele preço — útil pra marcar um nível de suporte ou resistência.'},
+  {id:'v',          icone:'┃',   titulo:'Linha vertical (marcar um horário) — 1 clique', modo:'ponto1', secao:'Linhas e formas',
+    manual:'Clique uma vez no gráfico. Marca uma linha vertical naquele horário — útil pra sinalizar um evento específico no tempo.'},
+  {id:'tendencia',  icone:'⟋',   titulo:'Linha de tendência (reta) — pressione, arraste e solte', modo:'arraste2', secao:'Linhas e formas',
+    manual:'Pressione o botão do mouse, arraste até o ponto final e solte. Desenha uma linha reta entre os dois pontos — a clássica linha de tendência.'},
+  {id:'seta',       icone:'↗',   titulo:'Seta — pressione, arraste pra esticar/diminuir e solte', modo:'arraste2', secao:'Linhas e formas',
+    manual:'Igual a Linha de tendência, mas termina com uma ponta de seta — bom pra indicar a direção de um movimento.'},
+  {id:'retangulo',  icone:'▭',   titulo:'Retângulo (marcar uma zona de preço) — pressione, arraste e solte', modo:'arraste2', secao:'Linhas e formas',
+    manual:'Pressione, arraste e solte formando um retângulo. Marca uma zona de preço; clicar em qualquer lugar dentro dela (não só na borda) também apaga com a Borracha.'},
+  {id:'canal',      icone:'Can', titulo:'Canal — pressione+arraste a linha principal, solte, depois clique pra definir a largura', modo:'canal', classe:'fib-btn', secao:'Linhas e formas',
+    manual:'Pressione, arraste e solte pra desenhar a linha principal (igual a Tendência). Depois, um terceiro clique em qualquer lugar define a largura — desenha uma segunda linha paralela e mostra a largura calculada em preço e em %.'},
+  {id:'canalfib',   icone:'CanF',titulo:'Canal de Fibonacci — igual o Canal, com níveis intermediários entre as duas linhas', modo:'canal', classe:'fib-btn', secao:'Linhas e formas',
+    manual:'Mesmo fluxo do Canal (linha + 3º clique de largura), mas desenha 7 níveis de Fibonacci entre as duas linhas paralelas, em vez de só uma linha oposta.'},
+  {id:'regua',      icone:'📐',  titulo:'Régua — mede Δpreço/Δcandles entre 2 pontos (não fica salva)', modo:'regua', secao:'Linhas e formas',
+    manual:'Pressione, arraste entre dois pontos e solte. Mostra a diferença de preço, a variação percentual e o número de candles entre os pontos — some sozinha depois de alguns segundos, não fica salva no painel Estudos.'},
   {id:'div2',   divisor:true},
-  {id:'lapis',    icone:'✏️', titulo:'Lápis — desenho livre, arraste pra riscar', modo:'livre'},
-  {id:'borracha', icone:'🧽', titulo:'Borracha — clique ou arraste em cima de um desenho pra apagar', modo:'apagar'},
+  {id:'lapis',    icone:'✏️', titulo:'Lápis — desenho livre, arraste pra riscar', modo:'livre', secao:'Mão livre',
+    manual:'Pressione e arraste livremente pra riscar qualquer forma à mão livre, como um lápis de verdade.'},
+  {id:'borracha', icone:'🧽', titulo:'Borracha — clique ou arraste em cima de um desenho pra apagar', modo:'apagar', secao:'Mão livre',
+    manual:'Clique ou arraste em cima de qualquer desenho pra apagar. Em um Retângulo, clicar em qualquer lugar dentro dele apaga (não precisa acertar a borda).'},
   {id:'div3',   divisor:true},
-  {id:'texto',  icone:'T',   titulo:'Nota — cria um bloco de anotação flutuante que você move pela tela', modo:'nota'},
-  {id:'fib',    icone:'Fib', titulo:'Retração de Fibonacci — pressione, arraste e solte', modo:'arraste2', classe:'fib-btn'},
-  {id:'fibext', icone:'Fib+',titulo:'Extensão de Fibonacci — pressione, arraste e solte', modo:'arraste2', classe:'fib-btn'},
-  {id:'leque',  icone:'Lqe', titulo:'Leque de Fibonacci — linhas do ponto inicial nos ângulos 38,2/50/61,8% até a borda', modo:'arraste2', classe:'fib-btn'},
-  {id:'fibseq', icone:'FSq', titulo:'Sequência de Fibonacci — 1 clique, marca horários espaçados pela sequência 1,2,3,5,8,13,21...', modo:'ponto1', classe:'fib-btn'},
+  {id:'texto',  icone:'T',   titulo:'Nota — cria um bloco de anotação flutuante que você move pela tela', modo:'nota', secao:'Nota e Fibonacci',
+    manual:'Clique uma vez em qualquer lugar. Abre um bloco de anotação flutuante que você arrasta pra qualquer canto da tela, redimensiona, minimiza ou fecha. Fechar não apaga o conteúdo — fica salvo e pode ser reaberto depois pelo chip que aparece no canto da tela.'},
+  {id:'fib',    icone:'Fib', titulo:'Retração de Fibonacci — pressione, arraste e solte', modo:'arraste2', classe:'fib-btn', secao:'Nota e Fibonacci',
+    manual:'Pressione, arraste do início ao fim de um movimento de preço e solte. Marca os níveis clássicos de retração (23,6% a 100%) — usado pra estimar até onde um recuo pode ir antes de o preço retomar a direção original.'},
+  {id:'fibext', icone:'Fib+',titulo:'Extensão de Fibonacci — pressione, arraste e solte', modo:'arraste2', classe:'fib-btn', secao:'Nota e Fibonacci',
+    manual:'Igual a Retração, mas os níveis (161,8%, 261,8%...) projetam preço além do segundo ponto — usado pra estimar alvos numa continuação de movimento.'},
+  {id:'leque',  icone:'Lqe', titulo:'Leque de Fibonacci — linhas do ponto inicial nos ângulos 38,2/50/61,8% até a borda', modo:'arraste2', classe:'fib-btn', secao:'Nota e Fibonacci',
+    manual:'Pressione, arraste e solte. Desenha três linhas saindo do primeiro ponto em ângulos de Fibonacci (38,2%/50%/61,8%) até a borda direita do gráfico.'},
+  {id:'fibseq', icone:'FSq', titulo:'Sequência de Fibonacci — 1 clique, marca horários espaçados pela sequência 1,2,3,5,8,13,21...', modo:'ponto1', classe:'fib-btn', secao:'Nota e Fibonacci',
+    manual:'Clique uma vez. Marca linhas verticais nos intervalos da sequência de Fibonacci (1, 2, 3, 5, 8, 13, 21...) candles a partir daquele ponto — usado pra projetar possíveis pontos de reversão no tempo.'},
   {id:'div4',   divisor:true},
-  {id:'regressao',   icone:'Reg', titulo:'Regressão Linear — selecione um intervalo de candles (pressione, arraste, solte)', modo:'arraste2', classe:'fib-btn'},
-  {id:'canaldesvio', icone:'CDP', titulo:'Canal de Desvio Padrão — regressão linear + bandas de ±1 e ±2 desvios sobre o intervalo', modo:'arraste2', classe:'fib-btn'},
-  {id:'suporteauto', icone:'SAu', titulo:'Suporte Automático — selecione um intervalo (pressione, arraste, solte); detecta mínimos locais e ajusta uma reta só sobre eles', modo:'arraste2', classe:'fib-btn'},
+  {id:'regressao',   icone:'Reg', titulo:'Regressão Linear — selecione um intervalo de candles (pressione, arraste, solte)', modo:'arraste2', classe:'fib-btn', secao:'Estatística',
+    manual:'Pressione, arraste sobre um trecho do gráfico e solte pra selecionar um intervalo de candles. A ferramenta calcula a reta que melhor se ajusta aos preços de fechamento reais daquele intervalo (não é a linha que você desenhou — é estatística de verdade) e mostra a variação % calculada.'},
+  {id:'canaldesvio', icone:'CDP', titulo:'Canal de Desvio Padrão — regressão linear + bandas de ±1 e ±2 desvios sobre o intervalo', modo:'arraste2', classe:'fib-btn', secao:'Estatística',
+    manual:'Igual a Regressão Linear, mas adiciona duas bandas de cada lado da linha central, na distância de 1 e 2 desvios padrão dos preços em relação à reta — útil pra ver o quanto o preço está se afastando do normal.'},
+  {id:'suporteauto', icone:'SAu', titulo:'Suporte Automático — selecione um intervalo (pressione, arraste, solte); detecta mínimos locais e ajusta uma reta só sobre eles', modo:'arraste2', classe:'fib-btn', secao:'Estatística',
+    manual:'Pressione, arraste sobre um intervalo e solte. A ferramenta encontra os fundos (mínimos locais) daquele trecho automaticamente e ajusta uma linha de suporte só sobre eles, marcando cada um com uma bolinha verde.'},
   {id:'div5',   divisor:true},
-  {id:'abcd',    icone:'ABCD', titulo:'ABCD — clique 4 vezes seguidas nos pontos A, B, C, D', modo:'sequencial', pontosNecessarios:4, classe:'fib-btn'},
-  {id:'xabcd',   icone:'XABC', titulo:'XABCD — clique 5 vezes seguidas nos pontos X, A, B, C, D', modo:'sequencial', pontosNecessarios:5, classe:'fib-btn'},
-  {id:'elliott', icone:'Ell',  titulo:'Ondas de Elliott — clique 6 vezes seguidas nos pontos 0,1,2,3,4,5 (impulso)', modo:'sequencial', pontosNecessarios:6, classe:'fib-btn'},
+  {id:'abcd',    icone:'ABCD', titulo:'ABCD — clique 4 vezes seguidas nos pontos A, B, C, D', modo:'sequencial', pontosNecessarios:4, classe:'fib-btn', secao:'Padrões harmônicos',
+    manual:'Clique 4 vezes seguidas, marcando os pontos A, B, C e D nessa ordem (não é arrastar — cada clique marca um ponto). Calcula as proporções entre os movimentos (BC em relação a AB, CD em relação a BC) — usado pra identificar um padrão harmônico clássico de possível reversão.'},
+  {id:'xabcd',   icone:'XABC', titulo:'XABCD — clique 5 vezes seguidas nos pontos X, A, B, C, D', modo:'sequencial', pontosNecessarios:5, classe:'fib-btn', secao:'Padrões harmônicos',
+    manual:'Igual o ABCD, mas com um ponto a mais no início (X): clique 5 vezes seguidas em X, A, B, C, D. Calcula proporções adicionais entre as pernas do padrão.'},
+  {id:'elliott', icone:'Ell',  titulo:'Ondas de Elliott — clique 6 vezes seguidas nos pontos 0,1,2,3,4,5 (impulso)', modo:'sequencial', pontosNecessarios:6, classe:'fib-btn', secao:'Padrões harmônicos',
+    manual:'Clique 6 vezes seguidas, marcando os pontos 0, 1, 2, 3, 4 e 5 de um impulso. A ferramenta confere as 3 regras clássicas do padrão (a onda 2 não pode voltar além do início da onda 1; a onda 3 nunca pode ser a mais curta entre 1, 3 e 5; a onda 4 não pode invadir o território da onda 1) e avisa se alguma foi quebrada.'},
 ];
 const MODO_FERRAMENTA = {};
 FERRAMENTAS.forEach(f=>{ if(f.modo) MODO_FERRAMENTA[f.id]=f.modo; });
+
+/* ============ Manual das ferramentas ============ */
+function renderManual(){
+  const body=$('#manualBody');
+  let html='';
+  let secaoAtual=null;
+  FERRAMENTAS.forEach(f=>{
+    if(f.divisor || !f.manual) return;
+    if(f.secao!==secaoAtual){
+      html += `<div class="manual-secao">${f.secao}</div>`;
+      secaoAtual = f.secao;
+    }
+    html += `<div class="manual-item">
+      <div class="manual-icone ${f.classe||''}">${f.icone}</div>
+      <div class="manual-texto"><b>${f.titulo.split('—')[0].trim()}</b><p>${f.manual}</p></div>
+    </div>`;
+  });
+  body.innerHTML = html;
+}
+$('#btnManual').addEventListener('click', ()=>{ renderManual(); $('#manualModal').style.display='flex'; });
+$('#btnFecharManual').addEventListener('click', ()=>{ $('#manualModal').style.display='none'; });
+$('#manualModal').addEventListener('click', e=>{ if(e.target.id==='manualModal') $('#manualModal').style.display='none'; });
+
 let ferramentaAtiva='cursor';
 let miraAtiva=false, imaAtivo=false;
 let estudos=[]; // {id, tipo, pts:[{t,preco}, ...]}
@@ -3376,6 +3453,8 @@ function updateBoletaRealismo(){
   $('#boletaPedagogica2').style.display = real?'none':'block';
   $('#btnExame').style.display = real?'none':'inline-flex';
   if(real && modoExame) iniciarModoExame(false); // Modo Exame é roteirizado/pedagógico — não existe no Trader
+  // Manual das ferramentas: muleta pedagógica, só faz sentido pra quem tá começando
+  $('#btnManual').style.display = dificuldade==='iniciante' ? 'inline-flex' : 'none';
 }
 
 /* ============ saldo persistente por nível (jogo de banca) ============ */
