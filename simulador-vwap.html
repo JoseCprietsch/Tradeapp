@@ -1449,6 +1449,9 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
       const t=((p3.x-p1.x)*dx+(p3.y-p1.y)*dy)/len2;
       const proj={x:p1.x+t*dx,y:p1.y+t*dy};
       const shiftX=p3.x-proj.x, shiftY=p3.y-proj.y;
+      // rótulos ficam perto de onde o usuário realmente clicou (90% do trecho original),
+      // não na ponta esticada da linha — essa pode sair da área visível do gráfico
+      const rx=p1.x+dx*0.9, ry=p1.y+dy*0.9;
       if(es.tipo==='canal'){
         ctx.beginPath();ctx.moveTo(a1.x+shiftX,a1.y+shiftY);ctx.lineTo(a2.x+shiftX,a2.y+shiftY);ctx.stroke();
       } else {
@@ -1461,14 +1464,14 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
           ctx.lineTo(a2.x+shiftX*nv, a2.y+shiftY*nv);
           ctx.stroke();
           if(nv!==0 && nv!==1){
-            desenharRotuloEstudo(`${(nv*100).toFixed(1)}%`, a2.x+shiftX*nv+4, a2.y+shiftY*nv-3, '#B7A6FF', 'left');
+            desenharRotuloEstudo(`${(nv*100).toFixed(1)}%`, rx+4, ry+shiftY*nv-3, '#B7A6FF', 'left');
           }
         });
         ctx.setLineDash([]);
       }
       const d = descCanal(es);
       if(d){
-        desenharRotuloEstudo(`largura ${fmt(Math.abs(d.largura))} (${Math.abs(d.larguraPct).toFixed(2)}%)`, a2.x+shiftX+4, a2.y+shiftY, '#D9A441', 'left');
+        desenharRotuloEstudo(`largura ${fmt(Math.abs(d.largura))} (${Math.abs(d.larguraPct).toFixed(2)}%)`, rx+4, ry+shiftY, '#D9A441', 'left');
       }
     }
   } else if(es.tipo==='leque'){
