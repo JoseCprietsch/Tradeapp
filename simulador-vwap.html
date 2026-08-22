@@ -1354,6 +1354,30 @@ function resize(){
 }
 window.addEventListener('resize',resize);
 
+function detectarMinimosLocais(candlesAgg, i1, i2, janela){
+  const pontos=[];
+  for(let i=i1;i<=i2;i++){
+    let ehMinimo=true;
+    for(let k=1;k<=janela && ehMinimo;k++){
+      if(i-k>=0 && candlesAgg[i-k].l < candlesAgg[i].l) ehMinimo=false;
+      if(i+k<candlesAgg.length && candlesAgg[i+k].l < candlesAgg[i].l) ehMinimo=false;
+    }
+    if(ehMinimo) pontos.push({idx:i, valor:candlesAgg[i].l});
+  }
+  return pontos;
+}
+function calcularRegressaoPontos(pontos){
+  const n=pontos.length;
+  if(n<2) return null;
+  let sumX=0,sumY=0;
+  pontos.forEach(p=>{ sumX+=p.idx; sumY+=p.valor; });
+  const meanX=sumX/n, meanY=sumY/n;
+  let num=0,den=0;
+  pontos.forEach(p=>{ const dx=p.idx-meanX; num+=dx*(p.valor-meanY); den+=dx*dx; });
+  const slope = den!==0 ? num/den : 0;
+  const intercept = meanY-slope*meanX;
+  return {slope, intercept, n};
+}
 function calcularRegressaoLinear(candlesAgg, i1, i2){
   if(i2<i1){ const t=i1; i1=i2; i2=t; }
   i1=Math.max(0,i1); i2=Math.min(candlesAgg.length-1,i2);
@@ -1537,6 +1561,31 @@ function renderEstudoNoCanvas(es, preview, x, y, bw, chW, chH, idxMaisProximo){
         } else {
           desenharRotuloEstudo(rotuloPrincipal, xB+4, yFim, '#D9A441', 'left');
         }
+      }
+    }
+  } else if(es.tipo==='suporteauto'){
+    ctx.setLineDash([]);
+    if(es.pts[0].px!==undefined){
+      ctx.strokeStyle='#2ECC8F';
+      ctx.beginPath();ctx.moveTo(pxs[0].x,pxs[0].y);ctx.lineTo(pxs[1].x,pxs[1].y);ctx.stroke();
+      desenharRotuloEstudo('sem candles pra calcular', pxs[1].x+6, pxs[1].y, '#8B94A8', 'left');
+    } else {
+      const candlesAgg = candlesParaExibicao();
+      let i1=idxMaisProximo(es.pts[0].t), i2=idxMaisProximo(es.pts[1].t);
+      if(i2<i1){ const t=i1; i1=i2; i2=t; }
+      const minimos = detectarMinimosLocais(candlesAgg, i1, i2, 3);
+      const reg = calcularRegressaoPontos(minimos);
+      if(reg){
+        const xA=x(i1)+bw/2, xB=x(i2)+bw/2;
+        ctx.strokeStyle='#2ECC8F';ctx.lineWidth=1.6;
+        ctx.beginPath();ctx.moveTo(xA,y(reg.intercept+reg.slope*i1));ctx.lineTo(xB,y(reg.intercept+reg.slope*i2));ctx.stroke();
+        minimos.forEach(p=>{
+          ctx.fillStyle='#2ECC8F';
+          ctx.beginPath();ctx.arc(x(p.idx)+bw/2, y(p.valor), 2.5, 0, Math.PI*2); ctx.fill();
+        });
+        desenharRotuloEstudo(`suporte automático — ${reg.n} mínimos locais`, xB+4, y(reg.intercept+reg.slope*i2), '#2ECC8F', 'left');
+      } else {
+        desenharRotuloEstudo('poucos mínimos detectados nesse intervalo — selecione um trecho maior', pxs[1].x+6, pxs[1].y, '#8B94A8', 'left');
       }
     }
   }
@@ -1892,6 +1941,7 @@ const FERRAMENTAS = [
   {id:'div4',   divisor:true},
   {id:'regressao',   icone:'Reg', titulo:'Regressão Linear — selecione um intervalo de candles (pressione, arraste, solte)', modo:'arraste2', classe:'fib-btn'},
   {id:'canaldesvio', icone:'CDP', titulo:'Canal de Desvio Padrão — regressão linear + bandas de ±1 e ±2 desvios sobre o intervalo', modo:'arraste2', classe:'fib-btn'},
+  {id:'suporteauto', icone:'SAu', titulo:'Suporte Automático — selecione um intervalo (pressione, arraste, solte); detecta mínimos locais e ajusta uma reta só sobre eles', modo:'arraste2', classe:'fib-btn'},
 ];
 const MODO_FERRAMENTA = {};
 FERRAMENTAS.forEach(f=>{ if(f.modo) MODO_FERRAMENTA[f.id]=f.modo; });
@@ -2198,6 +2248,20 @@ function estudoPertoDoPixel(es,px,py,tol){
     if(!candlesAgg[i1]||!candlesAgg[i2]) return false;
     const pA=pixelDoPonto({t:candlesAgg[i1].t.getTime(), preco:intercept+slope*i1});
     const pB=pixelDoPonto({t:candlesAgg[i2].t.getTime(), preco:intercept+slope*i2});
+    return distPontoSegmento(px,py,pA.x,pA.y,pB.x,pB.y)<=tol;
+  }
+  if(es.tipo==='suporteauto'){
+    if(es.pts[0].px!==undefined){
+      return distPontoSegmento(px,py,pxs[0].x,pxs[0].y,pxs[1].x,pxs[1].y)<=tol;
+    }
+    const candlesAgg=candlesParaExibicao();
+    let i1=idxDoPonto(es.pts[0].t), i2=idxDoPonto(es.pts[1].t);
+    if(i2<i1){ const t=i1; i1=i2; i2=t; }
+    const minimos=detectarMinimosLocais(candlesAgg,i1,i2,3);
+    const reg=calcularRegressaoPontos(minimos);
+    if(!reg || !candlesAgg[i1] || !candlesAgg[i2]) return false;
+    const pA=pixelDoPonto({t:candlesAgg[i1].t.getTime(), preco:reg.intercept+reg.slope*i1});
+    const pB=pixelDoPonto({t:candlesAgg[i2].t.getTime(), preco:reg.intercept+reg.slope*i2});
     return distPontoSegmento(px,py,pA.x,pA.y,pB.x,pB.y)<=tol;
   }
   // tendencia, seta: 1 segmento · lápis: vários segmentos em sequência
@@ -2789,6 +2853,16 @@ const DESC_ESTUDO = {
     const d = descRegressao(es);
     if(!d) return 'Canal Desvio Padrão (marcado no painel, sem candles)';
     return `Canal Desvio Padrão — ${d.pct>=0?'+':''}${d.pct.toFixed(2)}%, σ ${fmt(d.stdDev)} (${descHora(es.pts[0])} a ${descHora(es.pts[1])})`;
+  },
+  suporteauto:  es=>{
+    if(es.pts[0].px!==undefined) return 'Suporte Automático (marcado no painel, sem candles)';
+    const candlesAgg=candlesParaExibicao();
+    let i1=idxDoPonto(es.pts[0].t), i2=idxDoPonto(es.pts[1].t);
+    if(i2<i1){ const t=i1; i1=i2; i2=t; }
+    const minimos=detectarMinimosLocais(candlesAgg,i1,i2,3);
+    const reg=calcularRegressaoPontos(minimos);
+    if(!reg) return 'Suporte Automático (poucos mínimos no intervalo — selecione um trecho maior)';
+    return `Suporte Automático — ${reg.n} mínimos, ${reg.slope>=0?'ascendente':'descendente'} (${descHora(es.pts[0])} a ${descHora(es.pts[1])})`;
   },
   fib:        es=> es.pts[0].px!==undefined ? 'Fibonacci (marcado no painel, sem preço)' :
                    `Fibonacci — ${fmt(es.pts[0].preco)} → ${fmt(es.pts[1].preco)}`,
